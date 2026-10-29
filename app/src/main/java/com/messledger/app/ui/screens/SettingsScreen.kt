@@ -134,12 +134,6 @@ fun SettingsScreen(viewModel: MessViewModel) {
                 Text("Import CSV")
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "Import restores a ledger you exported earlier. Entries already in the app for the same date and meal are replaced by the file.",
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.textTertiary
-        )
         Spacer(modifier = Modifier.height(16.dp))
 
         Card(
