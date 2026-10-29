@@ -62,43 +62,32 @@ class MessViewModel(
                 curr = curr.plusDays(1)
             }
 
-            var subtotal = 0f
-            if (dailyMap[MealType.BREAKFAST]?.status != false) subtotal += config.priceBreakfast
-            if (dailyMap[MealType.LUNCH]?.status != false) {
-                subtotal += if (date.dayOfWeek == DayOfWeek.SATURDAY) config.priceLunch * 2 else config.priceLunch
-            }
-            if (dailyMap[MealType.DINNER]?.status != false && date.dayOfWeek != DayOfWeek.SATURDAY) {
-                subtotal += config.priceDinner
-            }
-            subtotal *= (1.0f + (config.taxPercent / 100f))
+            val dailyLiability = BillingEngine.dayLiability(date, dailyMap, config)
 
+            // Bill every elapsed day of the cycle, not only the days that
+            // happen to have a record. A day nobody touched is still a day the
+            // mess served: its meals default to eaten, so skipping it
+            // understated the total until each meal was tapped by hand.
             var batch1Liability = 0f
             var batch2Liability = 0f
-            
-            mealsByDate.forEach { (d, records) ->
-                var daySubtotal = 0f
-                val map = records.associateBy { it.mealType }
-                if (map[MealType.BREAKFAST]?.status != false) daySubtotal += config.priceBreakfast
-                if (map[MealType.LUNCH]?.status != false) {
-                    daySubtotal += if (d.dayOfWeek == DayOfWeek.SATURDAY) config.priceLunch * 2 else config.priceLunch
-                }
-                if (map[MealType.DINNER]?.status != false && d.dayOfWeek != DayOfWeek.SATURDAY) {
-                    daySubtotal += config.priceDinner
-                }
-                daySubtotal *= (1.0f + (config.taxPercent / 100f))
-                
-                if (d.dayOfMonth in 3..17) {
+            var billingDay = cycleStart
+            while (!billingDay.isAfter(endCalc)) {
+                val dayMap = mealsByDate[billingDay].orEmpty().associateBy { it.mealType }
+                val daySubtotal = BillingEngine.dayLiability(billingDay, dayMap, config)
+
+                if (billingDay.dayOfMonth in 3..17) {
                     batch1Liability += daySubtotal
                 } else {
                     batch2Liability += daySubtotal
                 }
+                billingDay = billingDay.plusDays(1)
             }
 
             MessState(
                 selectedDate = date,
                 mealsForDate = dailyMap,
                 cycleSkippedCount = skippedCount,
-                dailyLiability = subtotal,
+                dailyLiability = dailyLiability,
                 cycleMeals = mealsByDate,
                 batch1Liability = batch1Liability,
                 batch2Liability = batch2Liability,

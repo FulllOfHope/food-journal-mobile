@@ -11,6 +11,38 @@ object BillingEngine {
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
     /**
+     * Cost of one day, including tax.
+     *
+     * The mess serves every meal unless you say otherwise, so a meal with no
+     * record is billed as eaten. That default is the whole point of the
+     * journal: you tick the meals you skipped, not the ones you ate. Days you
+     * never opened therefore still cost their full amount.
+     *
+     * Saturday lunch is two portions and Saturday dinner is closed.
+     */
+    fun dayLiability(
+        date: LocalDate,
+        records: Map<MealType, MealRecord>,
+        config: Config
+    ): Float {
+        val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+        var subtotal = 0.0f
+
+        if (records[MealType.BREAKFAST]?.status != false) {
+            subtotal += config.priceBreakfast
+        }
+        if (records[MealType.LUNCH]?.status != false) {
+            subtotal += if (isSaturday) config.priceLunch * 2 else config.priceLunch
+        }
+        if (records[MealType.DINNER]?.status != false && !isSaturday) {
+            subtotal += config.priceDinner
+        }
+
+        val taxMultiplier = 1.0f + (config.taxPercent / 100.0f)
+        return subtotal * taxMultiplier
+    }
+
+    /**
      * Calculates total liability based on exact meals eaten, applying 5% tax.
      * Saturday Lunch = 2 portions. Saturday Dinner = 0 portions.
      */
