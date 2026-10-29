@@ -1,24 +1,35 @@
 package com.messledger.app.theme
 
-import androidx.compose.ui.graphics.Color
+import com.messledger.app.ui.theme.CardLight as UiCardLight
+import com.messledger.app.ui.theme.CardDark as UiCardDark
+import com.messledger.app.ui.theme.Ember as UiEmber
+import com.messledger.app.ui.theme.EtchedRuleStrong as UiEtchedRuleStrong
+import com.messledger.app.ui.theme.Ink as UiInk
+import com.messledger.app.ui.theme.NightSurfaceVariant as UiNightSurfaceVariant
+import com.messledger.app.ui.theme.Paper as UiPaper
+import com.messledger.app.ui.theme.Pencil as UiPencil
+import com.messledger.app.ui.theme.Rule as UiRule
+import com.messledger.app.ui.theme.StampRed as UiStampRed
+import com.messledger.app.ui.theme.TextLight as UiTextLight
+import com.messledger.app.ui.theme.VoidColor as UiVoidColor
 
-// ==========================================
-// 🌞 LIGHT MODE (The Sunlit Scrapbook)
-// ==========================================
-val StampRed = Color(0xFFD9381E)
-val PaperCream = Color(0xFFFDFBF7)
-val InkBlack = Color(0xFF212121)
-val PencilFaint = Color(0xFF8A867E)
-val LedgerRule = Color(0xFFDDD5C2)
-val EatenCardBg = Color(0xFFFDFAF5)
-val CardBgLight = Color(0xFFFAF8F2)
+// Compatibility names for the older `theme` package (widget, shared modifiers).
+// The palette itself lives in `ui.theme.Color`; these aliases only exist so
+// there is one set of values instead of two palettes drifting apart.
 
-// ==========================================
-// 🌙 DARK MODE (The Stargazer's Astrolabe)
-// ==========================================
-val VoidCharcoal = Color(0xFF0B0C10)
-val NeonEmber = Color(0xFFFF3300)
-val EtchedGlass = Color(0xFF454A59)
-val StarlightWhite = Color(0xFFE5E7EB)
-val DeepSpaceCard = Color(0xFF14161C)
-val NebulaGlow = Color(0xFF1F1210) // Subtle red/dark bg for eaten states
+// Sunlit Scrapbook
+val StampRed = UiStampRed
+val PaperCream = UiPaper
+val InkBlack = UiInk
+val PencilFaint = UiPencil
+val LedgerRule = UiRule
+val EatenCardBg = UiCardLight
+val CardBgLight = UiCardLight
+
+// The Night Ledger
+val VoidCharcoal = UiVoidColor
+val NeonEmber = UiEmber
+val EtchedGlass = UiEtchedRuleStrong
+val StarlightWhite = UiTextLight
+val DeepSpaceCard = UiCardDark
+val NebulaGlow = UiNightSurfaceVariant

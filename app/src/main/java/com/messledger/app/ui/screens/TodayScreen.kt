@@ -13,7 +13,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.messledger.app.data.MealType
@@ -23,8 +22,8 @@ import com.messledger.app.viewmodel.MessViewModel
 import java.time.DayOfWeek
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
-import kotlin.random.Random
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -88,49 +87,112 @@ fun TodayScreen(viewModel: MessViewModel) {
 
                 if (isDark) {
                     // ----------------------------------------------------
-                    // STARGAZER'S ASTROLABE (Dark Mode - Cycle Logic)
+                    // THE NIGHT LEDGER (a quiet 25-bead cycle dial)
                     // ----------------------------------------------------
-                    val radius = size.height / 2 * 0.8f
-                    drawCircle(color = colors.astrolabeRing, radius = radius, style = Stroke(width = 2.dp.toPx()))
+                    val outerRadius = min(size.width, size.height) / 2f * 0.86f
+                    val innerRadius = outerRadius * 0.76f
+                    val hairline = 1.dp.toPx()
+                    val beadRadius = 3.dp.toPx()
+                    val tickInset = 5.dp.toPx()
+
+                    drawCircle(
+                        color = colors.ruleDark,
+                        radius = outerRadius,
+                        center = center,
+                        style = Stroke(width = hairline)
+                    )
+                    drawCircle(
+                        color = colors.rule.copy(alpha = 0.85f),
+                        radius = innerRadius,
+                        center = center,
+                        style = Stroke(width = hairline)
+                    )
 
                     for (i in 0 until 25) {
-                        val angle = (i.toFloat() / 25f) * 2 * PI - PI / 2
-                        val cx = center.x + radius * cos(angle).toFloat()
-                        val cy = center.y + radius * sin(angle).toFloat()
+                        val angle = (i.toFloat() / 25f) * 2f * PI - PI / 2f
+                        val cosA = cos(angle).toFloat()
+                        val sinA = sin(angle).toFloat()
 
                         if (i < missedMeals) {
-                            drawCircle(color = colors.accentRed.copy(alpha = 0.4f), radius = 8f, center = Offset(cx, cy))
-                            drawCircle(color = colors.accentRed, radius = 4f, center = Offset(cx, cy))
-                        } else {
-                            drawCircle(color = colors.rule, radius = 4f, center = Offset(cx, cy))
-                        }
-                    }
-
-                    drawCircle(color = colors.textPrimary.copy(alpha = 0.2f), radius = 24f, center = center)
-                    drawCircle(color = colors.textPrimary, radius = 8f, center = center)
-
-                    if (missedMeals > 25) {
-                        val random = Random(42)
-                        for (i in 0 until 3) {
-                            val angle = random.nextFloat() * 2 * PI
-                            val startX = center.x + radius * cos(angle).toFloat()
-                            val startY = center.y + radius * sin(angle).toFloat()
-                            val path = Path()
-                            path.moveTo(startX, startY)
-                            var currX = startX
-                            var currY = startY
-                            for (step in 0 until 5) {
-                                currX += (random.nextFloat() - 0.5f) * 60f
-                                currY += (random.nextFloat() - 0.5f) * 60f
-                                path.lineTo(currX, currY)
-                            }
-                            drawPath(
-                                path = path,
+                            // A copper bead for each rebate spent.
+                            val beadCenter = Offset(
+                                center.x + outerRadius * cosA,
+                                center.y + outerRadius * sinA
+                            )
+                            drawCircle(
+                                color = colors.accentRed.copy(alpha = 0.16f),
+                                radius = beadRadius * 2f,
+                                center = beadCenter
+                            )
+                            drawCircle(
                                 color = colors.accentRed,
-                                style = Stroke(width = 2.dp.toPx(), join = StrokeJoin.Round)
+                                radius = beadRadius,
+                                center = beadCenter
+                            )
+                        } else {
+                            // Plain hairline ticks for the untouched allowance.
+                            drawLine(
+                                color = colors.rule.copy(alpha = 0.75f),
+                                start = Offset(
+                                    center.x + (outerRadius - tickInset) * cosA,
+                                    center.y + (outerRadius - tickInset) * sinA
+                                ),
+                                end = Offset(
+                                    center.x + (outerRadius + 2.dp.toPx()) * cosA,
+                                    center.y + (outerRadius + 2.dp.toPx()) * sinA
+                                ),
+                                strokeWidth = hairline,
+                                cap = StrokeCap.Round
                             )
                         }
                     }
+
+                    // The noon mark, so the dial has an orientation.
+                    drawLine(
+                        color = colors.brass.copy(alpha = 0.85f),
+                        start = Offset(center.x, center.y - outerRadius),
+                        end = Offset(center.x, center.y - innerRadius),
+                        strokeWidth = hairline * 1.5f,
+                        cap = StrokeCap.Round
+                    )
+                    drawCircle(
+                        color = colors.brass,
+                        radius = 1.8.dp.toPx(),
+                        center = Offset(center.x, center.y - innerRadius)
+                    )
+
+                    // A crescent and one star, drawn rather than glowing.
+                    val moonRadius = outerRadius * 0.30f
+                    val moonCenter = Offset(center.x - moonRadius * 0.08f, center.y + moonRadius * 0.02f)
+                    drawCircle(color = colors.textPrimary, radius = moonRadius, center = moonCenter)
+                    drawCircle(
+                        color = colors.background,
+                        radius = moonRadius * 0.93f,
+                        center = Offset(
+                            moonCenter.x + moonRadius * 0.56f,
+                            moonCenter.y - moonRadius * 0.26f
+                        )
+                    )
+
+                    val starCenter = Offset(
+                        center.x + outerRadius * 0.36f,
+                        center.y - outerRadius * 0.30f
+                    )
+                    val starArm = 4.5.dp.toPx()
+                    drawLine(
+                        color = colors.brass,
+                        start = Offset(starCenter.x - starArm, starCenter.y),
+                        end = Offset(starCenter.x + starArm, starCenter.y),
+                        strokeWidth = hairline,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = colors.brass,
+                        start = Offset(starCenter.x, starCenter.y - starArm),
+                        end = Offset(starCenter.x, starCenter.y + starArm),
+                        strokeWidth = hairline,
+                        cap = StrokeCap.Round
+                    )
                 } else {
                     // ----------------------------------------------------
                     // SUNLIT SCRAPBOOK (The Daily 3-Tangerine Stick)
@@ -226,6 +288,7 @@ fun TodayScreen(viewModel: MessViewModel) {
         Text(
             text = "Daily Subtotal: ₹%.2f".format(state.dailyLiability),
             style = MaterialTheme.typography.titleMedium,
+            color = colors.textPrimary,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 

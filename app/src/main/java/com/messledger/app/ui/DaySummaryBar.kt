@@ -6,8 +6,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.messledger.app.theme.messLedgerBackground
+import com.messledger.app.theme.messLedgerBorder
+import com.messledger.app.ui.theme.LocalMessColors
 import java.time.LocalDate
-import com.messledger.app.theme.*
 
 @Composable
 fun DaySummaryBar(
@@ -18,7 +20,8 @@ fun DaySummaryBar(
 ) {
     val dayOfMonth = currentDate.dayOfMonth
     val batch = if (dayOfMonth in 3..17) 1 else 2
-    
+    val colors = LocalMessColors.current
+
     val over = (consumed - allowanceTotal).coerceAtLeast(0.0)
 
     Column(
@@ -32,7 +35,7 @@ fun DaySummaryBar(
         Text(
             text = "Batch $batch",
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
+            color = colors.textPrimary
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(
@@ -42,12 +45,12 @@ fun DaySummaryBar(
             Text(
                 text = "Rebates Used:",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
+                color = colors.textPrimary
             )
             Text(
                 text = "$consumed / $allowanceTotal",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary
+                color = colors.textPrimary
             )
         }
         
@@ -60,12 +63,12 @@ fun DaySummaryBar(
                 Text(
                     text = "Excess Unrebated Skips:",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = StampRed
+                    color = colors.missed
                 )
                 Text(
                     text = "$over",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = StampRed
+                    color = colors.missed
                 )
             }
         }

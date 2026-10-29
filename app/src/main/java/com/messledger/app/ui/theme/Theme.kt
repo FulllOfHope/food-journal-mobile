@@ -8,8 +8,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -24,6 +26,9 @@ data class MessColors(
     val ruleDark: Color,
     val accentRed: Color,
     // Specialized
+    val brass: Color = Brass,
+    val eaten: Color = Leaf,
+    val missed: Color = StampRed,
     val bark: Color = Bark,
     val leaf: Color = Leaf,
     val fruit: Color = Fruit,
@@ -51,28 +56,50 @@ private val LightMessColors = MessColors(
     textTertiary = Pencil,
     rule = Rule,
     ruleDark = RuleDk,
-    accentRed = StampRed
+    accentRed = StampRed,
+    brass = Brass,
+    eaten = Leaf,
+    missed = StampRed,
+    bark = Bark,
+    leaf = Leaf,
+    fruit = Fruit
 )
 
 private val DarkMessColors = MessColors(
     background = VoidColor,
     surface = CardDark,
     textPrimary = TextLight,
-    textSecondary = TextLight,
+    textSecondary = TextSoft,
     textTertiary = TextDim,
     rule = EtchedRule,
-    ruleDark = EtchedRule,
-    accentRed = NeonEmber
+    ruleDark = EtchedRuleStrong,
+    accentRed = Ember,
+    brass = Brass,
+    eaten = Sage,
+    missed = Ember,
+    bark = NightBark,
+    leaf = NightLeaf,
+    fruit = NightFruit,
+    astrolabeRing = EtchedRuleStrong
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary = TextLight,
-    background = VoidColor,
-    surface = CardDark,
     onPrimary = VoidColor,
+    secondary = Brass,
+    onSecondary = VoidColor,
+    tertiary = Ember,
+    onTertiary = VoidColor,
+    background = VoidColor,
     onBackground = TextLight,
+    surface = CardDark,
     onSurface = TextLight,
-    error = NeonEmber
+    surfaceVariant = NightSurfaceVariant,
+    onSurfaceVariant = TextSoft,
+    outline = EtchedRuleStrong,
+    outlineVariant = EtchedRule,
+    error = Ember,
+    onError = VoidColor
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -95,10 +122,14 @@ fun FoodJournalTheme(
 
     val view = LocalView.current
     if (!view.isInEditMode) {
-        androidx.compose.runtime.SideEffect {
+        SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.value.toInt()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 

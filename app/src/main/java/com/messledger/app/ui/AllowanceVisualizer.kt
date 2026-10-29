@@ -1,6 +1,7 @@
 package com.messledger.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,7 @@ fun AllowanceVisualizer(
     val hasHalfMiss = (consumed - fullMisses) >= 0.5
 
     val colors = LocalMessColors.current
+    val isDark = isSystemInDarkTheme()
 
     Canvas(
         modifier = modifier
@@ -44,8 +46,8 @@ fun AllowanceVisualizer(
         val startX = (size.width - cellSize * cols) / 2f
         val startY = (size.height - cellSize * rows) / 2f
 
-        val stampRed = colors.accentRed
-        val borderColor = colors.rule
+        val stampRed = colors.missed
+        val borderColor = if (isDark) colors.ruleDark else colors.rule
 
         for (i in 0 until allowanceTotal) {
             val row = i / cols

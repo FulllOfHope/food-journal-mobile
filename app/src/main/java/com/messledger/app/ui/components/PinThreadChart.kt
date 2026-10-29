@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import com.messledger.app.ui.theme.LocalMessColors
 
 @Composable
 fun PinThreadChart(
@@ -17,7 +17,8 @@ fun PinThreadChart(
     modifier: Modifier = Modifier
 ) {
     if (dataPoints.isEmpty()) return
-    
+    val colors = LocalMessColors.current
+
     Canvas(
         modifier = modifier
             .fillMaxWidth()
@@ -53,15 +54,15 @@ fun PinThreadChart(
             
             drawPath(
                 path = path,
-                color = Color.Gray,
+                color = colors.textTertiary,
                 style = Stroke(width = 4f)
             )
         }
         
-        // Draw Pins (Red circles)
+        // Draw Pins (copper studs)
         for (point in points) {
             drawCircle(
-                color = Color.Red,
+                color = colors.missed,
                 radius = 8f,
                 center = point
             )

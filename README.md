@@ -22,6 +22,9 @@ This is a native port of the desktop app, built with **Jetpack Compose**.
 | **Import / Export** | back up your history to CSV, restore it after a reinstall or on a new phone |
 | **Sync** | reconciles with your laptop when it is reachable |
 
+Two themes, one journal: **Sunlit Scrapbook** by day, **The Night Ledger**
+after dark — warm ink, parchment text and a muted copper accent.
+
 Data is stored locally in a Room database. There is no account, no
 telemetry and no third-party SDK.
 
@@ -52,7 +55,7 @@ anything, which is also true of the Play Store.
 
 ## Backups, reinstalls and new phones
 
-**Updating the app does not touch your data.** v1.1 and v1.2 share the
+**Updating the app does not touch your data.** v1.1 and later share the
 same application id, so installing a newer APK over an older one keeps
 the Room database exactly as it was. Do **not** uninstall first if you
 can avoid it.
