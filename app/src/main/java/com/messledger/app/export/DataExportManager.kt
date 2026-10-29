@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.result.ActivityResult
+import com.messledger.app.data.Config
 import com.messledger.app.data.MealRecord
 import com.messledger.app.data.MealType
 import java.io.OutputStreamWriter
@@ -22,7 +23,7 @@ object DataExportManager {
         launcher.launch(intent)
     }
 
-    fun writeDataToUri(context: Context, uri: Uri, records: List<MealRecord>) {
+    fun writeDataToUri(context: Context, uri: Uri, records: List<MealRecord>, config: Config) {
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
             OutputStreamWriter(outputStream).use { writer ->
                 // Write Header
@@ -45,12 +46,12 @@ object DataExportManager {
                     var missed = 0
                     var bill = 0f
 
-                    if (bStatus) { eaten++; bill += 27.61f } else missed++
-                    if (lStatus) { eaten++; bill += if (isSaturday) 50.48f * 2 else 50.48f } else missed++
-                    if (dStatus && !isSaturday) { eaten++; bill += 50.48f }
+                    if (bStatus) { eaten++; bill += config.priceBreakfast } else missed++
+                    if (lStatus) { eaten++; bill += if (isSaturday) config.priceLunch * 2 else config.priceLunch } else missed++
+                    if (dStatus && !isSaturday) { eaten++; bill += config.priceDinner }
                     if (!dStatus && !isSaturday) { missed++ }
-                    
-                    bill *= 1.05f // Add tax
+
+                    bill *= (1.0f + config.taxPercent / 100.0f)
 
                     writer.write(
                         "$dateStr,${date.dayOfWeek.name}," +

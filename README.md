@@ -19,7 +19,7 @@ This is a native port of the desktop app, built with **Jetpack Compose**.
 | **Month** | a month grid with per-meal tick marks |
 | **Settings** | prices, tax, allowance, reminders |
 | **Home-screen widget** | log a meal without opening the app |
-| **Export** | your history out, as CSV or JSON |
+| **Import / Export** | back up your history to CSV, restore it after a reinstall or on a new phone |
 | **Sync** | reconciles with your laptop when it is reachable |
 
 Data is stored locally in a Room database. There is no account, no
@@ -47,6 +47,30 @@ browser.
 
 Nothing is uploaded anywhere. The warning exists because an APK can do
 anything, which is also true of the Play Store.
+
+---
+
+## Backups, reinstalls and new phones
+
+**Updating the app does not touch your data.** v1.1 and v1.2 share the
+same application id, so installing a newer APK over an older one keeps
+the Room database exactly as it was. Do **not** uninstall first if you
+can avoid it.
+
+If you do uninstall — or move to a new phone — take a backup first:
+
+1. **Settings → Export CSV**, and save the file somewhere you will find
+   it (Downloads, Drive, a laptop).
+2. Install the new version.
+3. **Settings → Import CSV** and pick that file.
+
+Import merges. A date and meal that already exists is replaced by the
+file; everything else is left alone. The older export only contains the
+cycle that was on screen when you pressed export, so export from a
+current build when you can.
+
+The CSV is plain text. Desktop exports (lower-case headers,
+`True`/`False` cells) import too.
 
 ---
 
@@ -99,7 +123,7 @@ com.messledger.app
 ├── MainActivity.kt
 ├── data/          Room database, DataStore config
 ├── domain/        BillingEngine — the rules above, in one place
-├── export/        CSV / JSON export
+├── export/        CSV import and export
 ├── sync/          foreground sync with the laptop
 ├── ui/
 │   ├── screens/   Today, Log, Month, Settings

@@ -131,6 +131,20 @@ class MessViewModel(
         }
     }
 
+    /** Every record, not just the visible cycle, for a complete backup. */
+    suspend fun allRecords(): List<MealRecord> = dao.getAllMeals()
+
+    /**
+     * Restore records from an imported ledger. Existing entries for the same
+     * date and meal are overwritten by the file.
+     */
+    fun importMeals(records: List<MealRecord>) {
+        if (records.isEmpty()) return
+        viewModelScope.launch {
+            dao.insertMeals(records)
+        }
+    }
+
     private fun getCycleRange(date: LocalDate): Pair<LocalDate, LocalDate> {
         val startMonth = if (date.dayOfMonth < 3) date.minusMonths(1) else date
         val start = startMonth.withDayOfMonth(3)

@@ -1,6 +1,7 @@
 package com.messledger.app.ui.screens
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -17,9 +18,13 @@ import com.messledger.app.data.Config
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.graphics.Color
 import com.messledger.app.export.DataExportManager
+import com.messledger.app.export.DataImporter
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.ui.AllowanceVisualizer
 import com.messledger.app.viewmodel.MessViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.DayOfWeek
 
 @Composable
@@ -28,11 +33,49 @@ fun SettingsScreen(viewModel: MessViewModel) {
     val colors = LocalMessColors.current
 
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    val scope = rememberCoroutineScope()
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
-                val allRecords = state.cycleMeals.values.flatten()
-                DataExportManager.writeDataToUri(context, uri, allRecords)
+                scope.launch {
+                    val records = viewModel.allRecords()
+                    withContext(Dispatchers.IO) {
+                        DataExportManager.writeDataToUri(context, uri, records, state.config)
+                    }
+                    Toast.makeText(
+                        context,
+                        "Exported ${records.size} meal entries",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val parsed = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        ?: throw IllegalStateException("Could not open that file")
+                }.mapCatching { DataImporter.parseCsv(it) }
+            }
+
+            parsed.onSuccess { result ->
+                if (result.error != null) {
+                    Toast.makeText(context, result.error, Toast.LENGTH_LONG).show()
+                } else {
+                    viewModel.importMeals(result.records)
+                    Toast.makeText(
+                        context,
+                        "Imported ${result.days} days (${result.records.size} meals)",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }.onFailure {
+                Toast.makeText(context, "Import failed: ${it.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -53,16 +96,50 @@ fun SettingsScreen(viewModel: MessViewModel) {
         Text("Insights & Analytics", style = MaterialTheme.typography.headlineMedium, color = colors.textPrimary)
         Spacer(modifier = Modifier.height(16.dp))
         
-        OutlinedButton(
-            onClick = { DataExportManager.triggerExportIntent(launcher) },
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.Transparent,
-                contentColor = colors.textPrimary
-            ),
-            border = BorderStroke(1.dp, colors.ruleDark)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Export Ledger to CSV")
+            OutlinedButton(
+                onClick = { DataExportManager.triggerExportIntent(exportLauncher) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = colors.textPrimary
+                ),
+                border = BorderStroke(1.dp, colors.ruleDark)
+            ) {
+                Text("Export CSV")
+            }
+            OutlinedButton(
+                onClick = {
+                    importLauncher.launch(
+                        arrayOf(
+                            "text/csv",
+                            "text/comma-separated-values",
+                            "text/plain",
+                            "application/csv",
+                            "application/vnd.ms-excel",
+                            "application/octet-stream"
+                        )
+                    )
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = colors.textPrimary
+                ),
+                border = BorderStroke(1.dp, colors.ruleDark)
+            ) {
+                Text("Import CSV")
+            }
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Import restores a ledger you exported earlier. Entries already in the app for the same date and meal are replaced by the file.",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textTertiary
+        )
         Spacer(modifier = Modifier.height(16.dp))
 
         Card(

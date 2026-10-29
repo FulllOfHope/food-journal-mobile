@@ -41,8 +41,16 @@ interface MessLedgerDao {
     @Query("SELECT * FROM meal_records WHERE date BETWEEN :startDate AND :endDate")
     fun getMealsBetween(startDate: String, endDate: String): Flow<List<MealRecord>>
 
+    /** Every record, oldest first. Used for a complete backup, not just a cycle. */
+    @Query("SELECT * FROM meal_records ORDER BY date, mealType")
+    suspend fun getAllMeals(): List<MealRecord>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMeal(record: MealRecord)
+
+    /** Bulk restore from an export. Same date + meal is overwritten. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMeals(records: List<MealRecord>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSyncDelta(delta: SyncDelta)
