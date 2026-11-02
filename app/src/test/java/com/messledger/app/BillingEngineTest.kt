@@ -27,8 +27,8 @@ class BillingEngineTest {
     private val wednesday = LocalDate.of(2026, 10, 14)
     private val saturday = LocalDate.of(2026, 10, 17)
 
-    private fun record(meal: MealType, eaten: Boolean, date: LocalDate = wednesday) =
-        MealRecord(date.toString(), meal, eaten, null, 0L)
+    private fun record(meal: MealType, eaten: Boolean, date: LocalDate = wednesday, guests: Int = 0) =
+        MealRecord(date.toString(), meal, eaten, null, 0L, guests)
 
     @Test
     fun untouchedDayIsBilledInFull() {
@@ -69,5 +69,42 @@ class BillingEngineTest {
             MealType.DINNER to record(MealType.DINNER, eaten = false)
         )
         assertEquals(30f, BillingEngine.dayLiability(wednesday, records, config), 0.001f)
+    }
+
+    @Test
+    fun guestsAreChargedOnTopOfTheDay() {
+        val records = mapOf(
+            MealType.BREAKFAST to record(MealType.BREAKFAST, eaten = true, guests = 1)
+        )
+        // breakfast 10 + 1 guest 10, plus untouched lunch 20 and dinner 30
+        assertEquals(70f, BillingEngine.dayLiability(wednesday, records, config), 0.001f)
+    }
+
+    @Test
+    fun guestsAreBilledEvenWhenTheHostSkips() {
+        val records = mapOf(
+            MealType.LUNCH to record(MealType.LUNCH, eaten = false, guests = 2)
+        )
+        // breakfast 10 + host lunch 0 + two guests 40 + dinner 30
+        assertEquals(80f, BillingEngine.dayLiability(wednesday, records, config), 0.001f)
+    }
+
+    @Test
+    fun aSaturdayGuestLunchCostsTwoPortions() {
+        val records = mapOf(
+            MealType.LUNCH to record(MealType.LUNCH, eaten = true, date = saturday, guests = 1)
+        )
+        // breakfast 10 + host 40 + guest 40, dinner closed
+        assertEquals(90f, BillingEngine.dayLiability(saturday, records, config), 0.001f)
+    }
+
+    @Test
+    fun calculateLiabilityIncludesGuests() {
+        val records = listOf(
+            record(MealType.BREAKFAST, eaten = true, guests = 1),
+            record(MealType.LUNCH, eaten = false, guests = 2)
+        )
+        // 10 + 10 (breakfast guest) + 0 (host lunch) + 40 (lunch guests)
+        assertEquals(60f, BillingEngine.calculateLiability(records, config), 0.001f)
     }
 }

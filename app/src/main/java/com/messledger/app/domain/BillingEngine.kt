@@ -10,17 +10,28 @@ import java.time.format.DateTimeFormatter
 object BillingEngine {
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
+    /** One portion of a meal, before tax. Saturday lunch is a double portion. */
+    fun mealUnitPrice(date: LocalDate, mealType: MealType, config: Config): Float {
+        val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+        return when (mealType) {
+            MealType.BREAKFAST -> config.priceBreakfast
+            MealType.LUNCH -> if (isSaturday) config.priceLunch * 2 else config.priceLunch
+            MealType.DINNER -> if (isSaturday) 0f else config.priceDinner
+        }
+    }
+
     /**
-     * Cost of one day, including tax.
+     * Cost of one day before tax.
      *
      * The mess serves every meal unless you say otherwise, so a meal with no
      * record is billed as eaten. That default is the whole point of the
      * journal: you tick the meals you skipped, not the ones you ate. Days you
      * never opened therefore still cost their full amount.
      *
-     * Saturday lunch is two portions and Saturday dinner is closed.
+     * Saturday lunch is two portions and Saturday dinner is closed. Guests are
+     * charged on top and never consume a rebate.
      */
-    fun dayLiability(
+    fun daySubtotal(
         date: LocalDate,
         records: Map<MealType, MealRecord>,
         config: Config
@@ -38,39 +49,43 @@ object BillingEngine {
             subtotal += config.priceDinner
         }
 
-        val taxMultiplier = 1.0f + (config.taxPercent / 100.0f)
-        return subtotal * taxMultiplier
+        for (mealType in MealType.values()) {
+            val guests = records[mealType]?.guestCount ?: 0
+            if (guests > 0) {
+                subtotal += mealUnitPrice(date, mealType, config) * guests
+            }
+        }
+
+        return subtotal
     }
 
     /**
-     * Calculates total liability based on exact meals eaten, applying 5% tax.
+     * Cost of one day, including tax.
+     */
+    fun dayLiability(
+        date: LocalDate,
+        records: Map<MealType, MealRecord>,
+        config: Config
+    ): Float {
+        val taxMultiplier = 1.0f + (config.taxPercent / 100.0f)
+        return daySubtotal(date, records, config) * taxMultiplier
+    }
+
+    /**
+     * Calculates total liability based on exact meals eaten, applying tax.
      * Saturday Lunch = 2 portions. Saturday Dinner = 0 portions.
+     * Guest portions are billed even when the host's meal was skipped.
      */
     fun calculateLiability(records: List<MealRecord>, config: Config): Float {
         var subtotal = 0.0f
         for (record in records) {
-            if (!record.status) continue // Only bill if eaten
-
             val date = LocalDate.parse(record.date, dateFormatter)
-            val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+            val unitPrice = mealUnitPrice(date, record.mealType, config)
 
-            when (record.mealType) {
-                MealType.BREAKFAST -> subtotal += config.priceBreakfast
-                MealType.LUNCH -> {
-                    subtotal += if (isSaturday) {
-                        config.priceLunch * 2
-                    } else {
-                        config.priceLunch
-                    }
-                }
-                MealType.DINNER -> {
-                    subtotal += if (isSaturday) {
-                        0.0f
-                    } else {
-                        config.priceDinner
-                    }
-                }
+            if (record.status) {
+                subtotal += unitPrice
             }
+            subtotal += unitPrice * record.guestCount.coerceAtLeast(0)
         }
 
         val taxMultiplier = 1.0f + (config.taxPercent / 100.0f)

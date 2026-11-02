@@ -2,6 +2,8 @@ package com.messledger.app.data
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -13,7 +15,9 @@ data class MealRecord(
     val mealType: MealType,
     val status: Boolean, // true = eaten, false = skipped
     val previousStatus: Boolean?,
-    val timestamp: Long
+    val timestamp: Long,
+    /** Extra eaters charged for this meal, independent of the rebate allowance. */
+    val guestCount: Int = 0
 )
 
 @Entity(tableName = "sync_queue")
@@ -41,6 +45,9 @@ interface MessLedgerDao {
     @Query("SELECT * FROM meal_records WHERE date BETWEEN :startDate AND :endDate")
     fun getMealsBetween(startDate: String, endDate: String): Flow<List<MealRecord>>
 
+    @Query("SELECT * FROM meal_records WHERE date BETWEEN :startDate AND :endDate")
+    suspend fun getMealsBetweenOnce(startDate: String, endDate: String): List<MealRecord>
+
     /** Every record, oldest first. Used for a complete backup, not just a cycle. */
     @Query("SELECT * FROM meal_records ORDER BY date, mealType")
     suspend fun getAllMeals(): List<MealRecord>
@@ -64,25 +71,91 @@ interface MessLedgerDao {
         val isPastDay = date < LocalDate.now().toString()
         val prevStatus = if (isPastDay && existing != null && existing.status != status) existing.status else existing?.previousStatus
 
-        insertMeal(MealRecord(date, mealType, status, prevStatus, timestamp))
+        insertMeal(
+            MealRecord(
+                date = date,
+                mealType = mealType,
+                status = status,
+                previousStatus = prevStatus,
+                timestamp = timestamp,
+                guestCount = existing?.guestCount ?: 0
+            )
+        )
         insertSyncDelta(SyncDelta(date = date, mealType = mealType, status = status, timestamp = timestamp))
+    }
+
+    /**
+     * Change the number of guests for one meal. A guest is an extra portion:
+     * it costs money, but it never spends a rebate. Keeping the existing
+     * status means adding a guest cannot accidentally un-skip a meal.
+     */
+    @Transaction
+    suspend fun setGuestCount(date: String, mealType: MealType, guestCount: Int, timestamp: Long) {
+        val existing = getMeal(date, mealType)
+        insertMeal(
+            MealRecord(
+                date = date,
+                mealType = mealType,
+                status = existing?.status ?: true,
+                previousStatus = existing?.previousStatus,
+                timestamp = timestamp,
+                guestCount = guestCount.coerceAtLeast(0)
+            )
+        )
+    }
+
+    /**
+     * Mark every meal in an inclusive date range eaten or skipped. Saturday
+     * dinner is never written because the mess is closed that night.
+     */
+    @Transaction
+    suspend fun setMealsStatusForRange(
+        startDate: String,
+        endDate: String,
+        status: Boolean,
+        timestamp: Long
+    ) {
+        var day = LocalDate.parse(startDate)
+        val end = LocalDate.parse(endDate)
+        var offset = 0L
+
+        while (!day.isAfter(end)) {
+            val stamp = timestamp + offset
+            logMeal(day.toString(), MealType.BREAKFAST, status, stamp)
+            logMeal(day.toString(), MealType.LUNCH, status, stamp)
+            if (day.dayOfWeek != java.time.DayOfWeek.SATURDAY) {
+                logMeal(day.toString(), MealType.DINNER, status, stamp)
+            }
+            day = day.plusDays(1)
+            offset++
+        }
     }
 }
 
-@Database(entities = [MealRecord::class, SyncDelta::class], version = 1, exportSchema = false)
+@Database(entities = [MealRecord::class, SyncDelta::class], version = 2, exportSchema = false)
 @TypeConverters(MessTypeConverters::class)
 abstract class MessLedgerDatabase : RoomDatabase() {
     abstract fun messLedgerDao(): MessLedgerDao
 
     companion object {
         @Volatile private var INSTANCE: MessLedgerDatabase? = null
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE meal_records ADD COLUMN guestCount INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): MessLedgerDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     MessLedgerDatabase::class.java,
                     "mess_ledger.db"
-                ).build()
+                ).addMigrations(MIGRATION_1_2)
+                    .build()
                 INSTANCE = instance
                 instance
             }

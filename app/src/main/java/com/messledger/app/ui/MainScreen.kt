@@ -43,12 +43,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
@@ -58,11 +58,11 @@ import androidx.navigation.compose.rememberNavController
 import com.messledger.app.data.ThemeMode
 import com.messledger.app.ui.navigation.MessNavHost
 import com.messledger.app.ui.navigation.NavRoute
-import com.messledger.app.ui.theme.Brass
 import com.messledger.app.ui.theme.LocalMessColors
-import com.messledger.app.ui.theme.NightCanvasBottom
 import com.messledger.app.ui.theme.NightCanvasTop
 import com.messledger.app.viewmodel.MessViewModel
+import java.time.LocalTime
+import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(
@@ -80,16 +80,8 @@ fun MainScreen(
             .fillMaxSize()
             .drawBehind {
                 if (isDark) {
-                    // The paper is lit by one warm lamp above the page: a
-                    // vertical ink wash plus a single, static pool of light.
-                    drawRect(Brush.verticalGradient(listOf(NightCanvasTop, NightCanvasBottom)))
-                    drawRect(
-                        Brush.radialGradient(
-                            colors = listOf(Brass.copy(alpha = 0.055f), Color.Transparent),
-                            center = Offset(size.width / 2f, -size.height * 0.08f),
-                            radius = size.width.coerceAtLeast(size.height) * 0.95f
-                        )
-                    )
+                    // AMOLED: a genuinely black page. No lamp wash, no grain.
+                    drawRect(NightCanvasTop)
                 } else {
                     drawRect(colors.background)
                 }
@@ -262,6 +254,8 @@ private fun LedgerTopBar(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            NightCanteenNote()
+
             ThemeSwitch(
                 isDark = isDark,
                 followsSystem = themeMode == ThemeMode.SYSTEM,
@@ -326,6 +320,41 @@ private fun ThemeSwitch(
                     .background(colors.brass, CircleShape)
             )
         }
+    }
+}
+
+/**
+ * A very small late-night easter egg: between midnight and 4 AM the masthead
+ * admits that the canteen is still awake.
+ */
+@Composable
+private fun NightCanteenNote() {
+    val colors = LocalMessColors.current
+
+    val now by produceState(initialValue = LocalTime.now()) {
+        while (true) {
+            delay(60_000)
+            value = LocalTime.now()
+        }
+    }
+
+    if (now.hour !in 0..3) return
+
+    Row(
+        modifier = Modifier.padding(end = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .background(colors.brass, CircleShape)
+        )
+        Spacer(modifier = Modifier.size(6.dp))
+        Text(
+            text = "☕ Night canteen",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.brass
+        )
     }
 }
 

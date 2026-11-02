@@ -100,4 +100,54 @@ class DataImporterTest {
         assertEquals(3, result.records.size)
         assertEquals(false, statusOf(result, "2026-10-14", MealType.DINNER))
     }
+
+    @Test
+    fun readsPerMealGuestCounts() {
+        val csv = """
+            Date,Weekday,Breakfast,Lunch,Dinner,Breakfast Guests,Lunch Guests,Dinner Guests,Meals Eaten,Missed,Bill
+            2026-10-14,WEDNESDAY,Eaten,Missed,Eaten,2,1,0,2,1,197.24
+        """.trimIndent()
+
+        val result = DataImporter.parseCsv(csv)
+
+        assertNull(result.error)
+        assertEquals(
+            2,
+            result.records.first {
+                it.date == "2026-10-14" && it.mealType == MealType.BREAKFAST
+            }.guestCount
+        )
+        assertEquals(
+            1,
+            result.records.first {
+                it.date == "2026-10-14" && it.mealType == MealType.LUNCH
+            }.guestCount
+        )
+        assertEquals(
+            0,
+            result.records.first {
+                it.date == "2026-10-14" && it.mealType == MealType.DINNER
+            }.guestCount
+        )
+    }
+
+    @Test
+    fun guestsDoNotInventARecordForABlankMeal() {
+        val csv = """
+            Date,Breakfast,Lunch,Dinner,Breakfast Guests,Lunch Guests,Dinner Guests
+            2026-10-14,,Eaten,Eaten,0,2,0
+        """.trimIndent()
+
+        val result = DataImporter.parseCsv(csv)
+
+        assertNull(result.error)
+        // Breakfast has no status and no guests, so no record is invented.
+        assertNull(statusOf(result, "2026-10-14", MealType.BREAKFAST))
+        assertEquals(
+            2,
+            result.records.first {
+                it.date == "2026-10-14" && it.mealType == MealType.LUNCH
+            }.guestCount
+        )
+    }
 }

@@ -27,7 +27,7 @@ object DataExportManager {
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
             OutputStreamWriter(outputStream).use { writer ->
                 // Write Header
-                writer.write("Date,Weekday,Breakfast,Lunch,Dinner,Meals Eaten,Missed,Bill\n")
+                writer.write("Date,Weekday,Breakfast,Lunch,Dinner,Breakfast Guests,Lunch Guests,Dinner Guests,Meals Eaten,Missed,Bill\n")
 
                 // Group by date
                 val grouped = records.groupBy { it.date }.toSortedMap()
@@ -41,6 +41,9 @@ object DataExportManager {
                     val bStatus = dayMap[MealType.BREAKFAST]?.status ?: true
                     val lStatus = dayMap[MealType.LUNCH]?.status ?: true
                     val dStatus = if (isSaturday) true else dayMap[MealType.DINNER]?.status ?: true // Sat dinner is NA
+                    val bGuests = dayMap[MealType.BREAKFAST]?.guestCount ?: 0
+                    val lGuests = dayMap[MealType.LUNCH]?.guestCount ?: 0
+                    val dGuests = if (isSaturday) 0 else dayMap[MealType.DINNER]?.guestCount ?: 0
 
                     var eaten = 0
                     var missed = 0
@@ -51,6 +54,12 @@ object DataExportManager {
                     if (dStatus && !isSaturday) { eaten++; bill += config.priceDinner }
                     if (!dStatus && !isSaturday) { missed++ }
 
+                    bill += bGuests * config.priceBreakfast
+                    bill += lGuests * (if (isSaturday) config.priceLunch * 2 else config.priceLunch)
+                    if (!isSaturday) {
+                        bill += dGuests * config.priceDinner
+                    }
+
                     bill *= (1.0f + config.taxPercent / 100.0f)
 
                     writer.write(
@@ -58,7 +67,7 @@ object DataExportManager {
                         "${if (bStatus) "Eaten" else "Missed"}," +
                         "${if (lStatus) "Eaten" else "Missed"}," +
                         "${if (isSaturday) "N/A" else if (dStatus) "Eaten" else "Missed"}," +
-                        "$eaten,$missed,%.2f\n".format(bill)
+                        "$bGuests,$lGuests,$dGuests,$eaten,$missed,%.2f\n".format(bill)
                     )
                 }
             }

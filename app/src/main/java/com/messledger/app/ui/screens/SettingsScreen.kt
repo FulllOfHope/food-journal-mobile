@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,13 +18,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,16 +46,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.messledger.app.data.Config
 import com.messledger.app.export.DataExportManager
 import com.messledger.app.export.DataImporter
 import com.messledger.app.ui.AllowanceVisualizer
+import com.messledger.app.ui.ReceiptDialog
 import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.ui.theme.MessColors
@@ -65,6 +83,7 @@ fun SettingsScreen(viewModel: MessViewModel) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var showReceipt by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -169,7 +188,8 @@ fun SettingsScreen(viewModel: MessViewModel) {
                         InsightsSection(
                             state = state,
                             onExport = onExport,
-                            onImport = onImport
+                            onImport = onImport,
+                            onReceipt = { showReceipt = true }
                         )
                         Spacer(modifier = Modifier.height(28.dp))
                         AllowanceSection(state = state)
@@ -195,6 +215,8 @@ fun SettingsScreen(viewModel: MessViewModel) {
                             onTaxChange = { tax = it; onSave() },
                             onAllowanceChange = { allowance = it; onSave() }
                         )
+                        Spacer(modifier = Modifier.height(28.dp))
+                        AboutSection()
                     }
                 }
             }
@@ -214,7 +236,8 @@ fun SettingsScreen(viewModel: MessViewModel) {
                     InsightsSection(
                         state = state,
                         onExport = onExport,
-                        onImport = onImport
+                        onImport = onImport,
+                        onReceipt = { showReceipt = true }
                     )
                     Spacer(modifier = Modifier.height(28.dp))
                     AllowanceSection(state = state)
@@ -232,10 +255,16 @@ fun SettingsScreen(viewModel: MessViewModel) {
                         onTaxChange = { tax = it; onSave() },
                         onAllowanceChange = { allowance = it; onSave() }
                     )
+                    Spacer(modifier = Modifier.height(28.dp))
+                    AboutSection()
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
+    }
+
+    if (showReceipt) {
+        ReceiptDialog(state = state, onDismiss = { showReceipt = false })
     }
 }
 
@@ -243,7 +272,8 @@ fun SettingsScreen(viewModel: MessViewModel) {
 private fun InsightsSection(
     state: MessState,
     onExport: () -> Unit,
-    onImport: () -> Unit
+    onImport: () -> Unit,
+    onReceipt: () -> Unit
 ) {
     val colors = LocalMessColors.current
     val isDark = LocalIsNight.current
@@ -283,6 +313,18 @@ private fun InsightsSection(
             ) {
                 Text("Import CSV", maxLines = 1)
             }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = onReceipt,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = colors.brass
+            ),
+            border = BorderStroke(1.dp, colors.ruleDark)
+        ) {
+            Text("Bill Receipt & Share")
         }
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -480,6 +522,135 @@ private fun LedgerHeading(text: String, style: TextStyle) {
                         )
                     }
             )
+        }
+    }
+}
+
+/**
+ * Version, a short description, and one very small easter egg: the warden's
+ * seal only approves the ledger after five taps.
+ */
+@Composable
+private fun AboutSection() {
+    val colors = LocalMessColors.current
+    val isDark = LocalIsNight.current
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+
+    val version = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: "1.4.0"
+    }
+
+    var taps by remember { mutableIntStateOf(0) }
+    val stamped = taps >= 5
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        LedgerHeading(
+            text = "About",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = colors.surface),
+            border = if (isDark) BorderStroke(1.dp, colors.rule) else null
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Mess Ledger",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "v$version",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textTertiary
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "A quiet ledger for meals, rebates, and the 3rd-of-the-month bill.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp)
+                        .drawBehind {
+                            drawRoundRect(
+                                color = if (stamped) colors.brass else colors.ruleDark,
+                                cornerRadius = CornerRadius(8.dp.toPx()),
+                                style = Stroke(
+                                    width = 1.5.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(
+                                        floatArrayOf(10f, 8f)
+                                    )
+                                )
+                            )
+                        }
+                        .clickable {
+                            if (!stamped) {
+                                taps++
+                                if (taps == 5) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (stamped) {
+                        Row(
+                            modifier = Modifier.rotate(-6f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Verified,
+                                contentDescription = null,
+                                tint = colors.brass,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text(
+                                text = "WARDEN APPROVED",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Serif,
+                                letterSpacing = 2.sp,
+                                color = colors.brass
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "The warden's stamp",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textTertiary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (stamped) {
+                        "The warden has looked the other way."
+                    } else {
+                        "Tap the seal five times."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textTertiary
+                )
+            }
         }
     }
 }

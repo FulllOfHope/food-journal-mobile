@@ -23,7 +23,15 @@ data class MessState(
     val cycleMeals: Map<LocalDate, List<MealRecord>> = emptyMap(),
     val batch1Liability: Float = 0.0f,
     val batch2Liability: Float = 0.0f,
-    val config: Config = Config(27.61f, 50.48f, 50.48f, 5.0f, 25)
+    val config: Config = Config(27.61f, 50.48f, 50.48f, 5.0f, 25),
+    val cycleStart: LocalDate = LocalDate.now(),
+    val cycleEnd: LocalDate = LocalDate.now(),
+    val cycleDaysElapsed: Int = 0,
+    val cycleMealsBilled: Double = 0.0,
+    val cycleGuests: Int = 0,
+    val cycleSubtotal: Float = 0.0f,
+    val cycleTax: Float = 0.0f,
+    val cycleTotal: Float = 0.0f
 )
 
 class MessViewModel(
@@ -49,21 +57,34 @@ class MessViewModel(
             dao.getMealsBetween(cycleStart.toString(), cycleEnd.toString())
         ) { dailyMeals, cycleMeals ->
             val dailyMap = dailyMeals.associateBy { it.mealType }
-            
+
             var skippedCount = 0.0
+            var billedUnits = 0.0
+            var guestCount = 0
+            var subtotal = 0f
+            var elapsedDays = 0
             val mealsByDate = cycleMeals.groupBy { LocalDate.parse(it.date) }
-            
+
             var curr = cycleStart
             val endCalc = if (LocalDate.now() < cycleEnd) LocalDate.now() else cycleEnd
-            
+
             while (curr <= endCalc) {
                 val dayRecords = mealsByDate[curr] ?: emptyList()
                 val dayMap = dayRecords.associateBy { it.mealType }
-                
+                val isSaturday = curr.dayOfWeek == DayOfWeek.SATURDAY
+
                 if (dayMap[MealType.BREAKFAST]?.status == false) skippedCount += 0.5
-                if (dayMap[MealType.LUNCH]?.status == false) skippedCount += if (curr.dayOfWeek == DayOfWeek.SATURDAY) 2.0 else 1.0
-                if (dayMap[MealType.DINNER]?.status == false && curr.dayOfWeek != DayOfWeek.SATURDAY) skippedCount += 1.0
-                
+                if (dayMap[MealType.LUNCH]?.status == false) skippedCount += if (isSaturday) 2.0 else 1.0
+                if (dayMap[MealType.DINNER]?.status == false && !isSaturday) skippedCount += 1.0
+
+                if (dayMap[MealType.BREAKFAST]?.status != false) billedUnits += 0.5
+                if (dayMap[MealType.LUNCH]?.status != false) billedUnits += if (isSaturday) 2.0 else 1.0
+                if (dayMap[MealType.DINNER]?.status != false && !isSaturday) billedUnits += 1.0
+
+                guestCount += dayRecords.sumOf { it.guestCount }
+                subtotal += BillingEngine.daySubtotal(curr, dayMap, config)
+
+                elapsedDays++
                 curr = curr.plusDays(1)
             }
 
@@ -78,16 +99,17 @@ class MessViewModel(
             var billingDay = cycleStart
             while (!billingDay.isAfter(endCalc)) {
                 val dayMap = mealsByDate[billingDay].orEmpty().associateBy { it.mealType }
-                val daySubtotal = BillingEngine.dayLiability(billingDay, dayMap, config)
+                val dayLiability = BillingEngine.dayLiability(billingDay, dayMap, config)
 
                 if (billingDay.dayOfMonth in 3..17) {
-                    batch1Liability += daySubtotal
+                    batch1Liability += dayLiability
                 } else {
-                    batch2Liability += daySubtotal
+                    batch2Liability += dayLiability
                 }
                 billingDay = billingDay.plusDays(1)
             }
 
+            val total = batch1Liability + batch2Liability
             MessState(
                 selectedDate = date,
                 mealsForDate = dailyMap,
@@ -96,7 +118,15 @@ class MessViewModel(
                 cycleMeals = mealsByDate,
                 batch1Liability = batch1Liability,
                 batch2Liability = batch2Liability,
-                config = config
+                config = config,
+                cycleStart = cycleStart,
+                cycleEnd = cycleEnd,
+                cycleDaysElapsed = elapsedDays,
+                cycleMealsBilled = billedUnits,
+                cycleGuests = guestCount,
+                cycleSubtotal = subtotal,
+                cycleTax = (total - subtotal).coerceAtLeast(0f),
+                cycleTotal = total
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MessState())
@@ -127,6 +157,41 @@ class MessViewModel(
             if (date.dayOfWeek != DayOfWeek.SATURDAY) {
                 dao.logMeal(date.toString(), MealType.DINNER, status, System.currentTimeMillis())
             }
+        }
+    }
+
+    /** Add or remove one guest portion for a meal on the selected date. */
+    fun changeGuestCount(mealType: MealType, delta: Int) {
+        changeGuestCount(_selectedDate.value, mealType, delta)
+    }
+
+    fun changeGuestCount(date: LocalDate, mealType: MealType, delta: Int) {
+        viewModelScope.launch {
+            val existing = dao.getMeal(date.toString(), mealType)
+            val next = ((existing?.guestCount ?: 0) + delta).coerceIn(0, 20)
+            dao.setGuestCount(
+                date = date.toString(),
+                mealType = mealType,
+                guestCount = next,
+                timestamp = System.currentTimeMillis()
+            )
+        }
+    }
+
+    /**
+     * Mark every meal in a range. Used for holidays and exam breaks so a week
+     * away does not need twenty-one individual taps.
+     */
+    fun setRangeStatus(start: LocalDate, end: LocalDate, status: Boolean) {
+        val first = if (start.isAfter(end)) end else start
+        val last = if (start.isAfter(end)) start else end
+        viewModelScope.launch {
+            dao.setMealsStatusForRange(
+                startDate = first.toString(),
+                endDate = last.toString(),
+                status = status,
+                timestamp = System.currentTimeMillis()
+            )
         }
     }
 

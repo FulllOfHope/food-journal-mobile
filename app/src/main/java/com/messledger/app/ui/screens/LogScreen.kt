@@ -4,7 +4,9 @@ import android.app.DatePickerDialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.messledger.app.data.MealType
 import com.messledger.app.domain.BillingEngine
 import com.messledger.app.ui.MealCard
+import com.messledger.app.ui.RangeActionDialog
 import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.viewmodel.MessState
@@ -63,6 +66,7 @@ fun LogScreen(viewModel: MessViewModel) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     var expandedDate by remember { mutableStateOf<LocalDate?>(null) }
+    var rangeStart by remember { mutableStateOf<LocalDate?>(null) }
     val colors = LocalMessColors.current
 
     // Sort dates descending
@@ -84,29 +88,47 @@ fun LogScreen(viewModel: MessViewModel) {
             }
         }
 
-        val jumpButton: @Composable (Modifier) -> Unit = { modifier ->
-            OutlinedButton(
-                onClick = {
-                    val current = state.selectedDate
-                    DatePickerDialog(
-                        context,
-                        { _, year, month, dayOfMonth ->
-                            // DatePickerDialog month is 0-indexed
-                            onPickDate(LocalDate.of(year, month + 1, dayOfMonth))
-                        },
-                        current.year,
-                        current.monthValue - 1,
-                        current.dayOfMonth
-                    ).show()
-                },
+        val actions: @Composable (Modifier) -> Unit = { modifier ->
+            Row(
                 modifier = modifier,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = colors.textPrimary
-                ),
-                border = BorderStroke(1.dp, colors.ruleDark)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Jump to Date")
+                OutlinedButton(
+                    onClick = {
+                        val current = state.selectedDate
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                // DatePickerDialog month is 0-indexed
+                                onPickDate(LocalDate.of(year, month + 1, dayOfMonth))
+                            },
+                            current.year,
+                            current.monthValue - 1,
+                            current.dayOfMonth
+                        ).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = colors.textPrimary
+                    ),
+                    border = BorderStroke(1.dp, colors.ruleDark),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Text("Jump to Date", maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = { rangeStart = state.selectedDate },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = colors.textSecondary
+                    ),
+                    border = BorderStroke(1.dp, colors.ruleDark),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Text("Mark Range", maxLines = 1)
+                }
             }
         }
 
@@ -127,7 +149,7 @@ fun LogScreen(viewModel: MessViewModel) {
                             .weight(1.1f)
                             .fillMaxHeight()
                     ) {
-                        jumpButton(Modifier.fillMaxWidth())
+                        actions(Modifier.fillMaxWidth())
                         Spacer(modifier = Modifier.height(12.dp))
                         TimelineList(
                             dates = sortedDates,
@@ -139,9 +161,13 @@ fun LogScreen(viewModel: MessViewModel) {
                                 expandedDate = date
                                 viewModel.setSelectedDate(date)
                             },
+                            onLongPress = { date -> rangeStart = date },
                             onToggleMeal = { date, meal ->
                                 viewModel.setSelectedDate(date)
                                 viewModel.toggleMeal(meal)
+                            },
+                            onGuestChange = { date, meal, delta ->
+                                viewModel.changeGuestCount(date, meal, delta)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -153,6 +179,9 @@ fun LogScreen(viewModel: MessViewModel) {
                         onToggleMeal = { date, meal ->
                             viewModel.setSelectedDate(date)
                             viewModel.toggleMeal(meal)
+                        },
+                        onGuestChange = { date, meal, delta ->
+                            viewModel.changeGuestCount(date, meal, delta)
                         },
                         modifier = Modifier
                             .weight(0.9f)
@@ -170,7 +199,7 @@ fun LogScreen(viewModel: MessViewModel) {
                         .widthIn(max = 720.dp)
                         .fillMaxSize()
                 ) {
-                    jumpButton(
+                    actions(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 16.dp)
@@ -184,9 +213,13 @@ fun LogScreen(viewModel: MessViewModel) {
                         onRowClick = { date ->
                             expandedDate = if (expandedDate == date) null else date
                         },
+                        onLongPress = { date -> rangeStart = date },
                         onToggleMeal = { date, meal ->
                             viewModel.setSelectedDate(date)
                             viewModel.toggleMeal(meal)
+                        },
+                        onGuestChange = { date, meal, delta ->
+                            viewModel.changeGuestCount(date, meal, delta)
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -194,8 +227,21 @@ fun LogScreen(viewModel: MessViewModel) {
             }
         }
     }
+
+    rangeStart?.let { start ->
+        RangeActionDialog(
+            initialStart = start,
+            onDismiss = { rangeStart = null },
+            onApply = { from, to, eaten ->
+                viewModel.setRangeStatus(from, to, eaten)
+                viewModel.setSelectedDate(from)
+                rangeStart = null
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TimelineList(
     dates: List<LocalDate>,
@@ -204,7 +250,9 @@ private fun TimelineList(
     twoPane: Boolean,
     listState: LazyListState,
     onRowClick: (LocalDate) -> Unit,
+    onLongPress: (LocalDate) -> Unit,
     onToggleMeal: (LocalDate, MealType) -> Unit,
+    onGuestChange: (LocalDate, MealType, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -262,7 +310,10 @@ private fun TimelineList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 24.dp)
-                        .clickable { onRowClick(date) }
+                        .combinedClickable(
+                            onClick = { onRowClick(date) },
+                            onLongClick = { onLongPress(date) }
+                        )
                 ) {
                     Text(
                         text = date.toString(),
@@ -281,7 +332,8 @@ private fun TimelineList(
                             LogMealCards(
                                 date = date,
                                 state = state,
-                                onToggleMeal = onToggleMeal
+                                onToggleMeal = onToggleMeal,
+                                onGuestChange = onGuestChange
                             )
                         }
                     }
@@ -295,7 +347,8 @@ private fun TimelineList(
 private fun LogMealCards(
     date: LocalDate,
     state: MessState,
-    onToggleMeal: (LocalDate, MealType) -> Unit
+    onToggleMeal: (LocalDate, MealType) -> Unit,
+    onGuestChange: (LocalDate, MealType, Int) -> Unit
 ) {
     val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
     val records = state.cycleMeals[date] ?: emptyList()
@@ -307,7 +360,9 @@ private fun LogMealCards(
         value = 0.5,
         status = bRecord?.status ?: true,
         previousStatus = bRecord?.previousStatus,
-        onClick = { onToggleMeal(date, MealType.BREAKFAST) }
+        guestCount = bRecord?.guestCount ?: 0,
+        onClick = { onToggleMeal(date, MealType.BREAKFAST) },
+        onGuestChange = { onGuestChange(date, MealType.BREAKFAST, it) }
     )
 
     val lRecord = dayMap[MealType.LUNCH]
@@ -316,7 +371,9 @@ private fun LogMealCards(
         value = if (isSaturday) 2.0 else 1.0,
         status = lRecord?.status ?: true,
         previousStatus = lRecord?.previousStatus,
-        onClick = { onToggleMeal(date, MealType.LUNCH) }
+        guestCount = lRecord?.guestCount ?: 0,
+        onClick = { onToggleMeal(date, MealType.LUNCH) },
+        onGuestChange = { onGuestChange(date, MealType.LUNCH, it) }
     )
 
     val dRecord = dayMap[MealType.DINNER]
@@ -325,10 +382,14 @@ private fun LogMealCards(
         value = if (isSaturday) 0.0 else 1.0,
         status = dRecord?.status ?: true,
         previousStatus = dRecord?.previousStatus,
+        guestCount = dRecord?.guestCount ?: 0,
         onClick = {
             if (!isSaturday) {
                 onToggleMeal(date, MealType.DINNER)
             }
+        },
+        onGuestChange = if (isSaturday) null else {
+            { onGuestChange(date, MealType.DINNER, it) }
         }
     )
 }
@@ -338,6 +399,7 @@ private fun DayDetailPane(
     date: LocalDate,
     state: MessState,
     onToggleMeal: (LocalDate, MealType) -> Unit,
+    onGuestChange: (LocalDate, MealType, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalMessColors.current
@@ -390,7 +452,8 @@ private fun DayDetailPane(
             LogMealCards(
                 date = date,
                 state = state,
-                onToggleMeal = onToggleMeal
+                onToggleMeal = onToggleMeal,
+                onGuestChange = onGuestChange
             )
 
             Spacer(modifier = Modifier.height(8.dp))

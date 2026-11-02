@@ -43,6 +43,10 @@ object DataImporter {
         val breakfastCol = header.indexOf("breakfast")
         val lunchCol = header.indexOf("lunch")
         val dinnerCol = header.indexOf("dinner")
+        val guestsCol = header.indexOf("guests")
+        val breakfastGuestsCol = header.indexOf("breakfastguests")
+        val lunchGuestsCol = header.indexOf("lunchguests")
+        val dinnerGuestsCol = header.indexOf("dinnerguests")
 
         if (dateCol < 0 || breakfastCol < 0 || lunchCol < 0 || dinnerCol < 0) {
             return Result(
@@ -75,20 +79,33 @@ object DataImporter {
                 MealType.DINNER to parseEaten(cells[dinnerCol])
             )
 
+            fun guestsAt(column: Int): Int {
+                if (column < 0 || cells.size <= column) return 0
+                return cells[column].trim().trim('"').toIntOrNull()?.coerceAtLeast(0) ?: 0
+            }
+
+            val guestCounts = mapOf(
+                MealType.BREAKFAST to (guestsAt(breakfastGuestsCol).takeIf { it > 0 } ?: guestsAt(guestsCol)),
+                MealType.LUNCH to guestsAt(lunchGuestsCol),
+                MealType.DINNER to guestsAt(dinnerGuestsCol)
+            )
+
             var found = false
             statuses.forEachIndexed { index, (meal, status) ->
                 // Saturday dinner is closed, and the app never stores it.
                 if (meal == MealType.DINNER && date.dayOfWeek == java.time.DayOfWeek.SATURDAY) {
                     return@forEachIndexed
                 }
-                if (status == null) return@forEachIndexed
+                val guests = guestCounts[meal] ?: 0
+                if (status == null && guests == 0) return@forEachIndexed
 
                 records += MealRecord(
                     date = date.toString(),
                     mealType = meal,
-                    status = status,
+                    status = status ?: true,
                     previousStatus = null,
-                    timestamp = now + index
+                    timestamp = now + index,
+                    guestCount = guests
                 )
                 found = true
             }
