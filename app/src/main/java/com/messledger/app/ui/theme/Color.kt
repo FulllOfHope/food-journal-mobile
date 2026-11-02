@@ -15,27 +15,27 @@ val Bark = Color(0xFF6B4A2F)
 val Leaf = Color(0xFF5A7A2A)
 val Fruit = Color(0xFFC96A24)
 
-// 🌙 DARK MODE ("Obsidian Ledger")
-// A true AMOLED page: the background is black, cards are near-black slate,
-// text is cool parchment, and the only colours are functional mint (eaten),
-// coral (skipped) and a restrained gold for totals.
+// 🌙 DARK MODE ("The Night Ledger")
+// The same warm journal after dark, on an AMOLED black canvas. Ink-stained
+// paper hues, parchment text and copper accents; the only colours are the
+// functional ones and they are muted, never glowing.
 val NightCanvasTop = Color(0xFF000000)
 val NightCanvasBottom = Color(0xFF000000)
 val VoidColor = Color(0xFF000000)
-val CardDark = Color(0xFF0C0E11)
-val NightSurfaceVariant = Color(0xFF15181D)
-val TextLight = Color(0xFFF2F3F5)
-val TextSoft = Color(0xFFA7ADB8)
-val TextDim = Color(0xFF6F7683)
-val EtchedRule = Color(0xFF20242B)
-val EtchedRuleStrong = Color(0xFF343A44)
-val AstrolabeRing = Color(0xFF343A44)
-val Ember = Color(0xFFFF7A6B)
-val Brass = Color(0xFFE0B25C)
+val CardDark = Color(0xFF1E1A16)
+val NightSurfaceVariant = Color(0xFF26211B)
+val TextLight = Color(0xFFEDE6D8)
+val TextSoft = Color(0xFFC3B9A7)
+val TextDim = Color(0xFF8A8070)
+val EtchedRule = Color(0xFF35312A)
+val EtchedRuleStrong = Color(0xFF4A443A)
+val AstrolabeRing = Color(0xFF4A443A)
+val Ember = Color(0xFFD08A6B)
+val Brass = Color(0xFFC8A46B)
 
-// Night-only botanical and semantic colours. Bright enough to read on black,
-// muted enough to stay functional.
-val Sage = Color(0xFF4ADE80)
-val NightBark = Color(0xFF5B6472)
-val NightLeaf = Color(0xFF34D399)
-val NightFruit = Color(0xFFFBBF24)
+// Night-only botanical and semantic colours. Muted so they sit on ink rather
+// than glowing out of it.
+val Sage = Color(0xFF93A87C)
+val NightBark = Color(0xFF7A6248)
+val NightLeaf = Color(0xFF7E8F63)
+val NightFruit = Color(0xFFC98A5E)

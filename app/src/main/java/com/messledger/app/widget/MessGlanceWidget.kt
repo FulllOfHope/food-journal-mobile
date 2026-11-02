@@ -67,13 +67,13 @@ private data class WidgetPalette(
 private fun paletteFor(isDark: Boolean): WidgetPalette = if (isDark) {
     WidgetPalette(
         background = Color(0xFF000000),
-        card = Color(0xFF0C0E11),
-        text = Color(0xFFF2F3F5),
-        secondary = Color(0xFFA7ADB8),
-        tertiary = Color(0xFF6F7683),
-        eaten = Color(0xFF4ADE80),
-        skipped = Color(0xFFFF7A6B),
-        gold = Color(0xFFE0B25C)
+        card = Color(0xFF1E1A16),
+        text = Color(0xFFEDE6D8),
+        secondary = Color(0xFFC3B9A7),
+        tertiary = Color(0xFF8A8070),
+        eaten = Color(0xFF7E8F63),
+        skipped = Color(0xFFD08A6B),
+        gold = Color(0xFFC8A46B)
     )
 } else {
     WidgetPalette(
@@ -297,9 +297,9 @@ private fun MealToggle(
 ) {
     val tint = if (eaten) palette.eaten else palette.skipped
     val background = if (eaten) {
-        if (palette.background.luminance() > 0.5f) Color(0xFFDDEBD2) else Color(0xFF12301E)
+        if (palette.background.luminance() > 0.5f) Color(0xFFDDEBD2) else Color(0xFF2A251B)
     } else {
-        if (palette.background.luminance() > 0.5f) Color(0xFFF3DFD9) else Color(0xFF351A17)
+        if (palette.background.luminance() > 0.5f) Color(0xFFF3DFD9) else Color(0xFF2A1D14)
     }
 
     Box(

@@ -93,8 +93,7 @@ fun MonthScreen(viewModel: MessViewModel) {
                             month = currentMonth,
                             narrow = narrow,
                             onPrevious = { viewModel.setSelectedDate(state.selectedDate.minusMonths(1)) },
-                            onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) },
-                            onOpenRange = { rangeStart = state.selectedDate }
+                            onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         WeekdayHeader(isDark = isDark)
@@ -114,6 +113,7 @@ fun MonthScreen(viewModel: MessViewModel) {
                     SelectedDayPanel(
                         state = state,
                         isDark = isDark,
+                        onOpenRange = { rangeStart = state.selectedDate },
                         onGuestChange = { meal, delta ->
                             viewModel.changeGuestCount(state.selectedDate, meal, delta)
                         },
@@ -138,8 +138,7 @@ fun MonthScreen(viewModel: MessViewModel) {
                         month = currentMonth,
                         narrow = narrow,
                         onPrevious = { viewModel.setSelectedDate(state.selectedDate.minusMonths(1)) },
-                        onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) },
-                        onOpenRange = { rangeStart = state.selectedDate }
+                        onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     WeekdayHeader(isDark = isDark)
@@ -177,8 +176,7 @@ private fun MonthHeader(
     month: LocalDate,
     narrow: Boolean,
     onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onOpenRange: () -> Unit
+    onNext: () -> Unit
 ) {
     val colors = LocalMessColors.current
 
@@ -206,12 +204,6 @@ private fun MonthHeader(
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(if (narrow) "▶" else "Next ▶", color = colors.textPrimary)
-        }
-        TextButton(
-            onClick = onOpenRange,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Text(if (narrow) "⇔" else "Range", color = colors.textSecondary)
         }
     }
 }
@@ -347,6 +339,7 @@ private fun MonthGrid(
 private fun SelectedDayPanel(
     state: MessState,
     isDark: Boolean,
+    onOpenRange: () -> Unit,
     onGuestChange: (MealType, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -388,6 +381,22 @@ private fun SelectedDayPanel(
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // The range editor lives here rather than in the month heading so
+            // the heading stays clean on narrow screens.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = onOpenRange,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text("Mark a range", color = colors.brass)
+                }
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 

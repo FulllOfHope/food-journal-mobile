@@ -124,7 +124,10 @@ fun MealCard(
                     }
                     if (isActive && !disabled) {
                         Spacer(modifier = Modifier.width(6.dp))
-                        MealBadge(text = "Now", color = colors.eaten)
+                        MealBadge(
+                            text = "Now",
+                            color = colors.brass
+                        )
                     }
                 }
 
@@ -169,7 +172,7 @@ fun MealCard(
                 }
             }
 
-            // TACTILE ANIMATION: a red stamp by day, a mint seal by night.
+            // TACTILE ANIMATION: a red stamp by day, a copper seal by night.
             if (!disabled && scale.value > 0.01f) {
                 Box(
                     modifier = Modifier
@@ -184,19 +187,19 @@ fun MealCard(
                             val hairline = 1.dp.toPx()
 
                             drawCircle(
-                                color = colors.eaten.copy(alpha = 0.5f),
+                                color = colors.brass.copy(alpha = 0.45f),
                                 radius = size.minDimension / 2f - hairline,
                                 center = center,
                                 style = Stroke(width = hairline)
                             )
                             drawCircle(
-                                color = colors.eaten.copy(alpha = 0.6f),
+                                color = colors.brass.copy(alpha = 0.55f),
                                 radius = size.minDimension * 0.34f,
                                 center = center,
                                 style = Stroke(width = hairline)
                             )
                             drawCircle(
-                                color = colors.eaten,
+                                color = colors.accentRed,
                                 radius = size.minDimension * 0.21f,
                                 center = center
                             )

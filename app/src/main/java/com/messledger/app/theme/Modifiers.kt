@@ -12,9 +12,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.messledger.app.ui.theme.CardDark
 import com.messledger.app.ui.theme.EtchedRuleStrong
+import com.messledger.app.ui.theme.Ember
 import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.NightSurfaceVariant
-import com.messledger.app.ui.theme.Sage
+import com.messledger.app.ui.theme.TextLight
 import kotlin.random.Random
 
 /**
@@ -110,15 +111,23 @@ private fun Modifier.etchedPanel(isActive: Boolean): Modifier = this.drawBehind 
     )
 
     if (isActive) {
-        // A whisper of mint in the stock, not a glow.
+        // A whisper of copper in the stock, not a glow.
         drawRoundRect(
-            color = Sage.copy(alpha = 0.06f),
+            color = Ember.copy(alpha = 0.06f),
             cornerRadius = corner
         )
     }
 
+    // A warm top edge: the page catching the lamp, not a glow.
+    drawLine(
+        color = TextLight.copy(alpha = 0.045f),
+        start = Offset(corner.x + 4.dp.toPx(), 1.dp.toPx()),
+        end = Offset(size.width - corner.x - 4.dp.toPx(), 1.dp.toPx()),
+        strokeWidth = 1.dp.toPx()
+    )
+
     drawRoundRect(
-        color = if (isActive) Sage.copy(alpha = 0.72f) else EtchedRuleStrong,
+        color = if (isActive) Ember.copy(alpha = 0.72f) else EtchedRuleStrong,
         cornerRadius = corner,
         style = Stroke(width = 1.dp.toPx())
     )
@@ -127,7 +136,7 @@ private fun Modifier.etchedPanel(isActive: Boolean): Modifier = this.drawBehind 
     val tick = 4.dp.toPx()
     val inset = 7.dp.toPx()
     val tickColor = if (isActive) {
-        Sage.copy(alpha = 0.55f)
+        Ember.copy(alpha = 0.55f)
     } else {
         EtchedRuleStrong.copy(alpha = 0.75f)
     }
