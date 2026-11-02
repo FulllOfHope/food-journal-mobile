@@ -540,7 +540,7 @@ private fun AboutSection() {
     val version = remember {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "1.4.0"
+        }.getOrNull() ?: "1.5.0"
     }
 
     var taps by remember { mutableIntStateOf(0) }
