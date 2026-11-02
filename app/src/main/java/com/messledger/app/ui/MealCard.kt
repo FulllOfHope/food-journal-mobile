@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.messledger.app.data.MealType
 import com.messledger.app.theme.messLedgerBackground
 import com.messledger.app.theme.messLedgerBorder
+import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 
 @Composable
@@ -43,7 +43,7 @@ fun MealCard(
     previousStatus: Boolean? = null,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsNight.current
     val colors = LocalMessColors.current
     val disabled = value == 0.0
 

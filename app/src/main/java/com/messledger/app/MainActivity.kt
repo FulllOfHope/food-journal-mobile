@@ -3,9 +3,13 @@ package com.messledger.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
 import com.messledger.app.data.ConfigDataStore
 import com.messledger.app.data.MessLedgerDatabase
+import com.messledger.app.data.ThemeMode
 import com.messledger.app.ui.MainScreen
 import com.messledger.app.ui.theme.FoodJournalTheme
 import com.messledger.app.viewmodel.MessViewModel
@@ -22,8 +26,22 @@ class MainActivity : ComponentActivity() {
         val viewModel = ViewModelProvider(this, factory)[MessViewModel::class.java]
 
         setContent {
-            FoodJournalTheme {
-                MainScreen(viewModel)
+            val themeMode by viewModel.themeMode.collectAsState()
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> systemDark
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
+            FoodJournalTheme(darkTheme = darkTheme) {
+                MainScreen(
+                    viewModel = viewModel,
+                    isDark = darkTheme,
+                    themeMode = themeMode,
+                    onToggleTheme = { viewModel.toggleTheme(darkTheme) },
+                    onResetTheme = { viewModel.setThemeMode(ThemeMode.SYSTEM) }
+                )
             }
         }
     }

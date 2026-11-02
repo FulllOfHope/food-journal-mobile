@@ -18,9 +18,11 @@ val Fruit = Color(0xFFC96A24)
 // 🌙 DARK MODE ("The Night Ledger")
 // The same warm journal after dark: ink-stained paper, parchment text and a
 // muted copper accent. No neon, no glow — just a quieter version of the day.
+val NightCanvasTop = Color(0xFF1A1611)
+val NightCanvasBottom = Color(0xFF0E0D0B)
 val VoidColor = Color(0xFF12110F)
-val CardDark = Color(0xFF1B1916)
-val NightSurfaceVariant = Color(0xFF23201B)
+val CardDark = Color(0xFF1E1A16)
+val NightSurfaceVariant = Color(0xFF26211B)
 val TextLight = Color(0xFFEDE6D8)
 val TextSoft = Color(0xFFC3B9A7)
 val TextDim = Color(0xFF8A8070)

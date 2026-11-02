@@ -1,6 +1,5 @@
 package com.messledger.app.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
@@ -14,7 +13,9 @@ import androidx.compose.ui.unit.dp
 import com.messledger.app.ui.theme.CardDark
 import com.messledger.app.ui.theme.Ember
 import com.messledger.app.ui.theme.EtchedRuleStrong
+import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.NightSurfaceVariant
+import com.messledger.app.ui.theme.TextLight
 import kotlin.random.Random
 
 /**
@@ -122,6 +123,32 @@ private fun Modifier.etchedPanel(isActive: Boolean): Modifier = this.drawBehind 
         cornerRadius = corner,
         style = Stroke(width = 1.dp.toPx())
     )
+
+    // A warm top edge: the page catching the lamp, not a glow.
+    drawLine(
+        color = TextLight.copy(alpha = 0.045f),
+        start = Offset(corner.x + 4.dp.toPx(), 1.dp.toPx()),
+        end = Offset(size.width - corner.x - 4.dp.toPx(), 1.dp.toPx()),
+        strokeWidth = 1.dp.toPx()
+    )
+
+    // Four small corner ticks, as if the panel were pinned into the ledger.
+    val tick = 4.dp.toPx()
+    val inset = 7.dp.toPx()
+    val tickColor = if (isActive) {
+        Ember.copy(alpha = 0.55f)
+    } else {
+        EtchedRuleStrong.copy(alpha = 0.75f)
+    }
+
+    drawLine(tickColor, Offset(inset, inset), Offset(inset + tick, inset), 1.dp.toPx())
+    drawLine(tickColor, Offset(inset, inset), Offset(inset, inset + tick), 1.dp.toPx())
+    drawLine(tickColor, Offset(size.width - inset, inset), Offset(size.width - inset - tick, inset), 1.dp.toPx())
+    drawLine(tickColor, Offset(size.width - inset, inset), Offset(size.width - inset, inset + tick), 1.dp.toPx())
+    drawLine(tickColor, Offset(inset, size.height - inset), Offset(inset + tick, size.height - inset), 1.dp.toPx())
+    drawLine(tickColor, Offset(inset, size.height - inset), Offset(inset, size.height - inset - tick), 1.dp.toPx())
+    drawLine(tickColor, Offset(size.width - inset, size.height - inset), Offset(size.width - inset - tick, size.height - inset), 1.dp.toPx())
+    drawLine(tickColor, Offset(size.width - inset, size.height - inset), Offset(size.width - inset, size.height - inset - tick), 1.dp.toPx())
 }
 
 /**
@@ -147,7 +174,7 @@ fun Modifier.pencilDivider(color: Color = PencilFaint): Modifier = this.drawBehi
  * The Master Adaptive Container Modifier.
  */
 fun Modifier.messLedgerBackground(): Modifier = composed {
-    if (isSystemInDarkTheme()) {
+    if (LocalIsNight.current) {
         this.nightGrain()
     } else {
         this.paperGrain()
@@ -158,7 +185,7 @@ fun Modifier.messLedgerBackground(): Modifier = composed {
  * The Master Adaptive Border Modifier.
  */
 fun Modifier.messLedgerBorder(isActive: Boolean = false): Modifier = composed {
-    if (isSystemInDarkTheme()) {
+    if (LocalIsNight.current) {
         this.etchedPanel(isActive)
     } else {
         this.deckledEdge(color = if (isActive) StampRed else LedgerRule)

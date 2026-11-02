@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,6 +28,7 @@ class ConfigDataStore(private val context: Context) {
         val PRICE_DINNER = floatPreferencesKey("price_dinner")
         val TAX_PERCENT = floatPreferencesKey("tax_percent")
         val ALLOWED_MISSES = intPreferencesKey("allowed_misses")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
     val configFlow: Flow<Config> = context.dataStore.data
@@ -47,6 +49,18 @@ class ConfigDataStore(private val context: Context) {
             preferences[PRICE_DINNER] = config.priceDinner
             preferences[TAX_PERCENT] = config.taxPercent
             preferences[ALLOWED_MISSES] = config.allowedMisses
+        }
+    }
+
+    val themeModeFlow: Flow<ThemeMode> = context.dataStore.data
+        .map { preferences ->
+            val saved = preferences[THEME_MODE]
+            ThemeMode.entries.firstOrNull { it.name == saved } ?: ThemeMode.SYSTEM
+        }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { preferences ->
+            preferences[THEME_MODE] = mode.name
         }
     }
 }

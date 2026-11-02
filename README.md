@@ -164,6 +164,12 @@ progress bars, with a single accent colour — a stamp red — and no green
 anywhere. Progress is shown as a fruiting tree and small marginalia
 rather than as chrome.
 
+The sun/moon at the top right switches between the two papers without a
+label. The first tap locks the opposite theme; a long press returns the
+switch to following the phone. The layout is adaptive too: the bottom
+bar stays on phones, while tablets and landscape phones get a navigation
+rail and two-pane Today, Log and Month screens.
+
 ---
 
 ## Licence

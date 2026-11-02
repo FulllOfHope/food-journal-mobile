@@ -1,7 +1,6 @@
 package com.messledger.app.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 import kotlin.math.min
 
@@ -30,7 +30,7 @@ fun AllowanceVisualizer(
     val hasHalfMiss = (consumed - fullMisses) >= 0.5
 
     val colors = LocalMessColors.current
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsNight.current
 
     Canvas(
         modifier = modifier

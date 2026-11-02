@@ -8,6 +8,7 @@ import com.messledger.app.data.ConfigDataStore
 import com.messledger.app.data.MealRecord
 import com.messledger.app.data.MealType
 import com.messledger.app.data.MessLedgerDao
+import com.messledger.app.data.ThemeMode
 import com.messledger.app.domain.BillingEngine
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -30,6 +31,10 @@ class MessViewModel(
     private val configDataStore: ConfigDataStore
 ) : ViewModel() {
     private val _selectedDate = MutableStateFlow(LocalDate.now())
+
+    /** The saved theme choice: follow the phone until the reader overrides it. */
+    val themeMode: StateFlow<ThemeMode> = configDataStore.themeModeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
 
     val state: StateFlow<MessState> = combine(
         _selectedDate,
@@ -128,6 +133,21 @@ class MessViewModel(
     fun updateConfig(config: Config) {
         viewModelScope.launch {
             configDataStore.updateConfig(config)
+        }
+    }
+
+    /**
+     * Tap the masthead switch: lock the mode opposite to what is on screen.
+     * [currentlyDark] is the resolved theme, so a tap from system-dark lands
+     * on light rather than guessing at the saved preference.
+     */
+    fun toggleTheme(currentlyDark: Boolean) {
+        setThemeMode(if (currentlyDark) ThemeMode.LIGHT else ThemeMode.DARK)
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            configDataStore.setThemeMode(mode)
         }
     }
 

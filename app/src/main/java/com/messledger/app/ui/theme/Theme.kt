@@ -35,6 +35,13 @@ data class MessColors(
     val astrolabeRing: Color = AstrolabeRing
 )
 
+/**
+ * The resolved theme, after the saved preference has been applied. Components
+ * read this instead of [isSystemInDarkTheme] so the masthead switch can
+ * override the phone without leaving half the app behind.
+ */
+val LocalIsNight = staticCompositionLocalOf { false }
+
 val LocalMessColors = staticCompositionLocalOf {
     MessColors(
         background = Color.Unspecified,
@@ -133,7 +140,10 @@ fun FoodJournalTheme(
         }
     }
 
-    CompositionLocalProvider(LocalMessColors provides customColors) {
+    CompositionLocalProvider(
+        LocalMessColors provides customColors,
+        LocalIsNight provides darkTheme
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,
