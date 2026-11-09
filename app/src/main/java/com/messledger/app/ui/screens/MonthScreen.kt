@@ -53,7 +53,6 @@ import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.viewmodel.MessState
 import com.messledger.app.viewmodel.MessViewModel
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -253,7 +252,7 @@ private fun MonthGrid(
             val date = currentMonth.plusDays(dayIndex.toLong())
             val records = state.cycleMeals[date] ?: emptyList()
             val dayMap = records.associateBy { it.mealType }
-            val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+            val rule = BillingEngine.ruleFor(date, state.config)
             val isSelected = date == state.selectedDate
 
             BoxWithConstraints(
@@ -314,17 +313,17 @@ private fun MonthGrid(
                         ) {
                             MealTick(
                                 status = dayMap[MealType.BREAKFAST]?.status ?: true,
-                                isClosed = false,
+                                isClosed = !rule.breakfast,
                                 tickSize = tickSize
                             )
                             MealTick(
                                 status = dayMap[MealType.LUNCH]?.status ?: true,
-                                isClosed = false,
+                                isClosed = rule.lunchPortions == 0,
                                 tickSize = tickSize
                             )
                             MealTick(
                                 status = dayMap[MealType.DINNER]?.status ?: true,
-                                isClosed = isSaturday,
+                                isClosed = !rule.dinner,
                                 tickSize = tickSize
                             )
                         }
@@ -345,12 +344,16 @@ private fun SelectedDayPanel(
 ) {
     val colors = LocalMessColors.current
     val date = state.selectedDate
-    val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+    val rule = BillingEngine.ruleFor(date, state.config)
     val records = state.cycleMeals[date] ?: emptyList()
     val dayMap = records.associateBy { it.mealType }
 
-    val meals = listOf(MealType.BREAKFAST, MealType.LUNCH) +
-        if (!isSaturday) listOf(MealType.DINNER) else emptyList()
+    val meals = buildList {
+        if (rule.breakfast) add(MealType.BREAKFAST)
+        if (rule.lunchPortions > 0) add(MealType.LUNCH)
+        if (rule.dinner) add(MealType.DINNER)
+    }
+    val closedMeals = MealType.values().filter { it !in meals }
     val eatenCount = meals.count { dayMap[it]?.status ?: true }
     val dailyTotal = BillingEngine.dayLiability(date, dayMap, state.config)
 
@@ -467,7 +470,7 @@ private fun SelectedDayPanel(
                 }
             }
 
-            if (isSaturday) {
+            closedMeals.forEach { meal ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -477,7 +480,7 @@ private fun SelectedDayPanel(
                     MealTick(status = true, isClosed = true, tickSize = 10.dp)
                     Spacer(modifier = Modifier.size(10.dp))
                     Text(
-                        text = "Dinner",
+                        text = meal.name.lowercase().replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.textTertiary,
                         modifier = Modifier.weight(1f)

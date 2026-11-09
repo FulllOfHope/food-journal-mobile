@@ -1,6 +1,7 @@
 package com.messledger.app
 
 import com.messledger.app.data.Config
+import com.messledger.app.data.DayRule
 import com.messledger.app.data.MealRecord
 import com.messledger.app.data.MealType
 import com.messledger.app.domain.BillingEngine
@@ -96,6 +97,53 @@ class BillingEngineTest {
         )
         // breakfast 10 + host 40 + guest 40, dinner closed
         assertEquals(90f, BillingEngine.dayLiability(saturday, records, config), 0.001f)
+    }
+
+    @Test
+    fun aFeastCanMoveToAnotherDay() {
+        val sunday = saturday.plusDays(1)
+        val moved = config.copy(
+            dayRules = mapOf(
+                // The usual Saturday feast becomes an ordinary day.
+                saturday.toString() to DayRule(lunchPortions = 1, dinner = true),
+                // ...and Sunday carries the double lunch instead.
+                sunday.toString() to DayRule(lunchPortions = 2, dinner = false)
+            )
+        )
+
+        // Saturday: breakfast 10 + normal lunch 20 + dinner 30
+        assertEquals(60f, BillingEngine.dayLiability(saturday, emptyMap(), moved), 0.001f)
+        // Sunday: breakfast 10 + double lunch 40, dinner closed
+        assertEquals(50f, BillingEngine.dayLiability(sunday, emptyMap(), moved), 0.001f)
+    }
+
+    @Test
+    fun aDateRuleCanCloseBreakfastOrLunch() {
+        val closed = config.copy(
+            dayRules = mapOf(
+                wednesday.toString() to DayRule(
+                    breakfast = false,
+                    lunchPortions = 0,
+                    dinner = true
+                )
+            )
+        )
+
+        // Only dinner remains billable.
+        assertEquals(30f, BillingEngine.dayLiability(wednesday, emptyMap(), closed), 0.001f)
+    }
+
+    @Test
+    fun aRuleOnlyAffectsItsOwnDate() {
+        val ruled = config.copy(
+            dayRules = mapOf(
+                saturday.toString() to DayRule(lunchPortions = 1, dinner = true)
+            )
+        )
+
+        // The next Saturday still follows the untouched default.
+        val nextSaturday = saturday.plusWeeks(1)
+        assertEquals(50f, BillingEngine.dayLiability(nextSaturday, emptyMap(), ruled), 0.001f)
     }
 
     @Test

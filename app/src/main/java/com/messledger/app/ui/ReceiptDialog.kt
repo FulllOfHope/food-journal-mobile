@@ -116,7 +116,7 @@ fun ReceiptDialog(
                 }
 
                 Text(
-                    text = "Includes every elapsed day of the cycle. Saturday lunch is billed as two portions; Saturday dinner is closed.",
+                    text = "Includes every elapsed day of the cycle. Portions follow each date's rules; by default Saturday lunch is billed as two and Saturday dinner is closed.",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textTertiary,
                     modifier = Modifier.padding(top = 8.dp)

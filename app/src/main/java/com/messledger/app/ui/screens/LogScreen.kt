@@ -56,7 +56,6 @@ import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.viewmodel.MessState
 import com.messledger.app.viewmodel.MessViewModel
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -263,8 +262,14 @@ private fun TimelineList(
         items(dates) { date ->
             val records = state.cycleMeals[date] ?: emptyList()
             val isExpanded = expandedDate == date
-            val eatenCount = records.count { it.status }
-            val maxEaten = if (date.dayOfWeek == DayOfWeek.SATURDAY) 2 else 3
+            val rule = BillingEngine.ruleFor(date, state.config)
+            val servedMeals = buildSet {
+                if (rule.breakfast) add(MealType.BREAKFAST)
+                if (rule.lunchPortions > 0) add(MealType.LUNCH)
+                if (rule.dinner) add(MealType.DINNER)
+            }
+            val eatenCount = records.count { it.status && it.mealType in servedMeals }
+            val maxEaten = servedMeals.size
             val fullyEaten = eatenCount == maxEaten
             val colors = LocalMessColors.current
 
@@ -350,14 +355,14 @@ private fun LogMealCards(
     onToggleMeal: (LocalDate, MealType) -> Unit,
     onGuestChange: (LocalDate, MealType, Int) -> Unit
 ) {
-    val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+    val rule = BillingEngine.ruleFor(date, state.config)
     val records = state.cycleMeals[date] ?: emptyList()
     val dayMap = records.associateBy { it.mealType }
 
     val bRecord = dayMap[MealType.BREAKFAST]
     MealCard(
         mealType = MealType.BREAKFAST,
-        value = 0.5,
+        value = if (rule.breakfast) 0.5 else 0.0,
         status = bRecord?.status ?: true,
         previousStatus = bRecord?.previousStatus,
         guestCount = bRecord?.guestCount ?: 0,
@@ -368,10 +373,11 @@ private fun LogMealCards(
     val lRecord = dayMap[MealType.LUNCH]
     MealCard(
         mealType = MealType.LUNCH,
-        value = if (isSaturday) 2.0 else 1.0,
+        value = rule.lunchPortions.toDouble(),
         status = lRecord?.status ?: true,
         previousStatus = lRecord?.previousStatus,
         guestCount = lRecord?.guestCount ?: 0,
+        feast = rule.lunchPortions >= 2,
         onClick = { onToggleMeal(date, MealType.LUNCH) },
         onGuestChange = { onGuestChange(date, MealType.LUNCH, it) }
     )
@@ -379,18 +385,18 @@ private fun LogMealCards(
     val dRecord = dayMap[MealType.DINNER]
     MealCard(
         mealType = MealType.DINNER,
-        value = if (isSaturday) 0.0 else 1.0,
+        value = if (rule.dinner) 1.0 else 0.0,
         status = dRecord?.status ?: true,
         previousStatus = dRecord?.previousStatus,
         guestCount = dRecord?.guestCount ?: 0,
         onClick = {
-            if (!isSaturday) {
+            if (rule.dinner) {
                 onToggleMeal(date, MealType.DINNER)
             }
         },
-        onGuestChange = if (isSaturday) null else {
+        onGuestChange = if (rule.dinner) {
             { onGuestChange(date, MealType.DINNER, it) }
-        }
+        } else null
     )
 }
 
@@ -404,11 +410,14 @@ private fun DayDetailPane(
 ) {
     val colors = LocalMessColors.current
     val isDark = LocalIsNight.current
-    val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+    val rule = BillingEngine.ruleFor(date, state.config)
     val records = state.cycleMeals[date] ?: emptyList()
     val dayMap = records.associateBy { it.mealType }
-    val meals = listOf(MealType.BREAKFAST, MealType.LUNCH) +
-        if (!isSaturday) listOf(MealType.DINNER) else emptyList()
+    val meals = buildList {
+        if (rule.breakfast) add(MealType.BREAKFAST)
+        if (rule.lunchPortions > 0) add(MealType.LUNCH)
+        if (rule.dinner) add(MealType.DINNER)
+    }
     val eatenCount = meals.count { dayMap[it]?.status ?: true }
     val dailyTotal = BillingEngine.dayLiability(date, dayMap, state.config)
 

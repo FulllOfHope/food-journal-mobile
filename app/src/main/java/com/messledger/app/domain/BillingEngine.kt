@@ -1,6 +1,7 @@
 package com.messledger.app.domain
 
 import com.messledger.app.data.Config
+import com.messledger.app.data.DayRule
 import com.messledger.app.data.MealRecord
 import com.messledger.app.data.MealType
 import java.time.LocalDate
@@ -10,13 +11,25 @@ import java.time.format.DateTimeFormatter
 object BillingEngine {
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
-    /** One portion of a meal, before tax. Saturday lunch is a double portion. */
+    /** The weekday rules the mess follows unless a date says otherwise. */
+    fun defaultRule(date: LocalDate): DayRule =
+        if (date.dayOfWeek == DayOfWeek.SATURDAY) {
+            DayRule(breakfast = true, lunchPortions = 2, dinner = false)
+        } else {
+            DayRule(breakfast = true, lunchPortions = 1, dinner = true)
+        }
+
+    /** The saved override for a date, or the weekday default if none exists. */
+    fun ruleFor(date: LocalDate, config: Config): DayRule =
+        config.dayRules[date.toString()] ?: defaultRule(date)
+
+    /** One portion of a meal, before tax. Feasts are set per date. */
     fun mealUnitPrice(date: LocalDate, mealType: MealType, config: Config): Float {
-        val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+        val rule = ruleFor(date, config)
         return when (mealType) {
-            MealType.BREAKFAST -> config.priceBreakfast
-            MealType.LUNCH -> if (isSaturday) config.priceLunch * 2 else config.priceLunch
-            MealType.DINNER -> if (isSaturday) 0f else config.priceDinner
+            MealType.BREAKFAST -> if (rule.breakfast) config.priceBreakfast else 0f
+            MealType.LUNCH -> config.priceLunch * rule.lunchPortions
+            MealType.DINNER -> if (rule.dinner) config.priceDinner else 0f
         }
     }
 
@@ -36,16 +49,16 @@ object BillingEngine {
         records: Map<MealType, MealRecord>,
         config: Config
     ): Float {
-        val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+        val rule = ruleFor(date, config)
         var subtotal = 0.0f
 
-        if (records[MealType.BREAKFAST]?.status != false) {
+        if (rule.breakfast && records[MealType.BREAKFAST]?.status != false) {
             subtotal += config.priceBreakfast
         }
-        if (records[MealType.LUNCH]?.status != false) {
-            subtotal += if (isSaturday) config.priceLunch * 2 else config.priceLunch
+        if (rule.lunchPortions > 0 && records[MealType.LUNCH]?.status != false) {
+            subtotal += config.priceLunch * rule.lunchPortions
         }
-        if (records[MealType.DINNER]?.status != false && !isSaturday) {
+        if (rule.dinner && records[MealType.DINNER]?.status != false) {
             subtotal += config.priceDinner
         }
 

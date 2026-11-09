@@ -66,6 +66,7 @@ import com.messledger.app.data.Config
 import com.messledger.app.export.DataExportManager
 import com.messledger.app.export.DataImporter
 import com.messledger.app.ui.AllowanceVisualizer
+import com.messledger.app.ui.DayRulesDialog
 import com.messledger.app.ui.ReceiptDialog
 import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
@@ -84,6 +85,7 @@ fun SettingsScreen(viewModel: MessViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showReceipt by remember { mutableStateOf(false) }
+    var showDayRules by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -192,6 +194,11 @@ fun SettingsScreen(viewModel: MessViewModel) {
                             onReceipt = { showReceipt = true }
                         )
                         Spacer(modifier = Modifier.height(28.dp))
+                        DayRulesSection(
+                            state = state,
+                            onOpen = { showDayRules = true }
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
                         AllowanceSection(state = state)
                     }
 
@@ -240,6 +247,11 @@ fun SettingsScreen(viewModel: MessViewModel) {
                         onReceipt = { showReceipt = true }
                     )
                     Spacer(modifier = Modifier.height(28.dp))
+                    DayRulesSection(
+                        state = state,
+                        onOpen = { showDayRules = true }
+                    )
+                    Spacer(modifier = Modifier.height(28.dp))
                     AllowanceSection(state = state)
                     Spacer(modifier = Modifier.height(28.dp))
                     BillingSection(
@@ -265,6 +277,54 @@ fun SettingsScreen(viewModel: MessViewModel) {
 
     if (showReceipt) {
         ReceiptDialog(state = state, onDismiss = { showReceipt = false })
+    }
+
+    if (showDayRules) {
+        DayRulesDialog(
+            state = state,
+            onDismiss = { showDayRules = false },
+            onSave = { date, rule -> viewModel.setDayRule(date, rule) }
+        )
+    }
+}
+
+@Composable
+private fun DayRulesSection(
+    state: MessState,
+    onOpen: () -> Unit
+) {
+    val colors = LocalMessColors.current
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        LedgerHeading(
+            text = "Day Rules",
+            style = MaterialTheme.typography.headlineMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "The weekday rules stay the default, but one date can differ: move the feast lunch to a Sunday, close dinner for a festival, or restore the default at any time.",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textSecondary
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = onOpen,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = colors.textPrimary
+            ),
+            border = BorderStroke(1.dp, colors.ruleDark)
+        ) {
+            Text("Custom day rules")
+        }
+        if (state.config.dayRules.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "${state.config.dayRules.size} date${if (state.config.dayRules.size == 1) "" else "s"} overridden",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.brass
+            )
+        }
     }
 }
 
@@ -540,7 +600,7 @@ private fun AboutSection() {
     val version = remember {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "1.5.0"
+        }.getOrNull() ?: "1.5.1"
     }
 
     var taps by remember { mutableIntStateOf(0) }

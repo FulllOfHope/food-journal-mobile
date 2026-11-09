@@ -75,7 +75,7 @@ fun RangeActionDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Set every meal in this span at once. Saturday still counts lunch twice and closes dinner.",
+                    text = "Set every meal in this span at once. Each date follows its saved day rules; by default Saturday counts lunch twice and closes dinner.",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textSecondary
                 )

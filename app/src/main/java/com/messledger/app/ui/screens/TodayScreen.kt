@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.messledger.app.data.MealType
+import com.messledger.app.domain.BillingEngine
 import com.messledger.app.ui.MealCard
 import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
@@ -316,13 +317,13 @@ private fun MealRows(
     viewModel: MessViewModel,
     activeMeal: MealType?
 ) {
-    val isSaturday = state.selectedDate.dayOfWeek == DayOfWeek.SATURDAY
+    val rule = BillingEngine.ruleFor(state.selectedDate, state.config)
     val isServingNow = state.selectedDate == LocalDate.now()
 
     val breakfastRecord = state.mealsForDate[MealType.BREAKFAST]
     MealCard(
         mealType = MealType.BREAKFAST,
-        value = 0.5,
+        value = if (rule.breakfast) 0.5 else 0.0,
         status = breakfastRecord?.status ?: true,
         previousStatus = breakfastRecord?.previousStatus,
         guestCount = breakfastRecord?.guestCount ?: 0,
@@ -334,12 +335,12 @@ private fun MealRows(
     val lunchRecord = state.mealsForDate[MealType.LUNCH]
     MealCard(
         mealType = MealType.LUNCH,
-        value = if (isSaturday) 2.0 else 1.0,
+        value = rule.lunchPortions.toDouble(),
         status = lunchRecord?.status ?: true,
         previousStatus = lunchRecord?.previousStatus,
         guestCount = lunchRecord?.guestCount ?: 0,
         isActive = isServingNow && activeMeal == MealType.LUNCH,
-        feast = isSaturday,
+        feast = rule.lunchPortions >= 2,
         onClick = { viewModel.toggleMeal(MealType.LUNCH) },
         onGuestChange = { viewModel.changeGuestCount(MealType.LUNCH, it) }
     )
@@ -347,15 +348,15 @@ private fun MealRows(
     val dinnerRecord = state.mealsForDate[MealType.DINNER]
     MealCard(
         mealType = MealType.DINNER,
-        value = if (isSaturday) 0.0 else 1.0,
+        value = if (rule.dinner) 1.0 else 0.0,
         status = dinnerRecord?.status ?: true,
         previousStatus = dinnerRecord?.previousStatus,
         guestCount = dinnerRecord?.guestCount ?: 0,
-        isActive = isServingNow && !isSaturday && activeMeal == MealType.DINNER,
-        onClick = { if (!isSaturday) viewModel.toggleMeal(MealType.DINNER) },
-        onGuestChange = if (isSaturday) null else {
+        isActive = isServingNow && rule.dinner && activeMeal == MealType.DINNER,
+        onClick = { if (rule.dinner) viewModel.toggleMeal(MealType.DINNER) },
+        onGuestChange = if (rule.dinner) {
             { viewModel.changeGuestCount(MealType.DINNER, it) }
-        }
+        } else null
     )
 }
 
@@ -398,8 +399,14 @@ private fun ActionButtons(viewModel: MessViewModel) {
 @Composable
 private fun DaySummaryNote(state: MessState) {
     val colors = LocalMessColors.current
-    val isSaturday = state.selectedDate.dayOfWeek == DayOfWeek.SATURDAY
-    val closed = if (isSaturday) "Dinner is closed on Saturdays." else "All three meals are billed unless marked skipped."
+    val rule = BillingEngine.ruleFor(state.selectedDate, state.config)
+    val closed = when {
+        !rule.breakfast && !rule.dinner -> "Breakfast and dinner are closed on this date."
+        !rule.dinner -> "Dinner is closed on this date."
+        !rule.breakfast -> "Breakfast is closed on this date."
+        rule.lunchPortions == 0 -> "Lunch is closed on this date."
+        else -> "All served meals are billed unless marked skipped."
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -426,7 +433,7 @@ private fun DaySummaryNote(state: MessState) {
 private fun DayVisual(state: MessState, isDark: Boolean, height: Dp) {
     val colors = LocalMessColors.current
     val selectedDate = state.selectedDate
-    val isSaturday = selectedDate.dayOfWeek == DayOfWeek.SATURDAY
+    val rule = BillingEngine.ruleFor(selectedDate, state.config)
 
     Box(
         modifier = Modifier
@@ -516,8 +523,11 @@ private fun DayVisual(state: MessState, isDark: Boolean, height: Dp) {
 
                 // The moon reports the day rather than decorating it:
                 // new moon at none, crescent at one, gibbous at two, full at all.
-                val meals = listOf(MealType.BREAKFAST, MealType.LUNCH) +
-                    if (!isSaturday) listOf(MealType.DINNER) else emptyList()
+                val meals = buildList {
+                    if (rule.breakfast) add(MealType.BREAKFAST)
+                    if (rule.lunchPortions > 0) add(MealType.LUNCH)
+                    if (rule.dinner) add(MealType.DINNER)
+                }
                 val eatenCount = meals.count { state.mealsForDate[it]?.status ?: true }
                 val fullDay = meals.isNotEmpty() && eatenCount == meals.size
 
@@ -632,11 +642,11 @@ private fun DayVisual(state: MessState, isDark: Boolean, height: Dp) {
                 )
 
                 // 2. Evaluate Today's Meals
-                val dailyMeals = listOfNotNull(
-                    state.mealsForDate[MealType.BREAKFAST]?.status ?: true,
-                    state.mealsForDate[MealType.LUNCH]?.status ?: true,
-                    if (!isSaturday) state.mealsForDate[MealType.DINNER]?.status ?: true else null
-                )
+                val dailyMeals = buildList {
+                    if (rule.breakfast) add(state.mealsForDate[MealType.BREAKFAST]?.status ?: true)
+                    if (rule.lunchPortions > 0) add(state.mealsForDate[MealType.LUNCH]?.status ?: true)
+                    if (rule.dinner) add(state.mealsForDate[MealType.DINNER]?.status ?: true)
+                }
 
                 // 3. Draw the 3 Daily Fruits
                 val spacing = (trunkBottom - trunkTop - 60f * scale) / 5f

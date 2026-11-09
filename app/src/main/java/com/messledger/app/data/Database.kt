@@ -105,15 +105,17 @@ interface MessLedgerDao {
     }
 
     /**
-     * Mark every meal in an inclusive date range eaten or skipped. Saturday
-     * dinner is never written because the mess is closed that night.
+     * Mark every meal in an inclusive date range eaten or skipped. Dinner is
+     * never written for dates the caller reports as closed (Saturday by
+     * default, or a date overridden in the day rules).
      */
     @Transaction
     suspend fun setMealsStatusForRange(
         startDate: String,
         endDate: String,
         status: Boolean,
-        timestamp: Long
+        timestamp: Long,
+        dinnerClosedDates: Set<String> = emptySet()
     ) {
         var day = LocalDate.parse(startDate)
         val end = LocalDate.parse(endDate)
@@ -123,7 +125,7 @@ interface MessLedgerDao {
             val stamp = timestamp + offset
             logMeal(day.toString(), MealType.BREAKFAST, status, stamp)
             logMeal(day.toString(), MealType.LUNCH, status, stamp)
-            if (day.dayOfWeek != java.time.DayOfWeek.SATURDAY) {
+            if (day.dayOfWeek != java.time.DayOfWeek.SATURDAY && day.toString() !in dinnerClosedDates) {
                 logMeal(day.toString(), MealType.DINNER, status, stamp)
             }
             day = day.plusDays(1)

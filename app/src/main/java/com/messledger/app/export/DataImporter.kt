@@ -92,10 +92,9 @@ object DataImporter {
 
             var found = false
             statuses.forEachIndexed { index, (meal, status) ->
-                // Saturday dinner is closed, and the app never stores it.
-                if (meal == MealType.DINNER && date.dayOfWeek == java.time.DayOfWeek.SATURDAY) {
-                    return@forEachIndexed
-                }
+                // Closed meals are ignored by the billing rules, so keeping
+                // their imported records is harmless and lets a later day-rule
+                // override make use of them.
                 val guests = guestCounts[meal] ?: 0
                 if (status == null && guests == 0) return@forEachIndexed
 

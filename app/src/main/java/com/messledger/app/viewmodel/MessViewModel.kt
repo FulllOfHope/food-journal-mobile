@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.messledger.app.data.Config
 import com.messledger.app.data.ConfigDataStore
+import com.messledger.app.data.DayRule
 import com.messledger.app.data.MealRecord
 import com.messledger.app.data.MealType
 import com.messledger.app.data.MessLedgerDao
@@ -12,7 +13,6 @@ import com.messledger.app.data.ThemeMode
 import com.messledger.app.domain.BillingEngine
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
 import java.time.LocalDate
 
 data class MessState(
@@ -71,15 +71,19 @@ class MessViewModel(
             while (curr <= endCalc) {
                 val dayRecords = mealsByDate[curr] ?: emptyList()
                 val dayMap = dayRecords.associateBy { it.mealType }
-                val isSaturday = curr.dayOfWeek == DayOfWeek.SATURDAY
+                val rule = BillingEngine.ruleFor(curr, config)
 
-                if (dayMap[MealType.BREAKFAST]?.status == false) skippedCount += 0.5
-                if (dayMap[MealType.LUNCH]?.status == false) skippedCount += if (isSaturday) 2.0 else 1.0
-                if (dayMap[MealType.DINNER]?.status == false && !isSaturday) skippedCount += 1.0
+                if (rule.breakfast && dayMap[MealType.BREAKFAST]?.status == false) skippedCount += 0.5
+                if (rule.lunchPortions > 0 && dayMap[MealType.LUNCH]?.status == false) {
+                    skippedCount += rule.lunchPortions
+                }
+                if (rule.dinner && dayMap[MealType.DINNER]?.status == false) skippedCount += 1.0
 
-                if (dayMap[MealType.BREAKFAST]?.status != false) billedUnits += 0.5
-                if (dayMap[MealType.LUNCH]?.status != false) billedUnits += if (isSaturday) 2.0 else 1.0
-                if (dayMap[MealType.DINNER]?.status != false && !isSaturday) billedUnits += 1.0
+                if (rule.breakfast && dayMap[MealType.BREAKFAST]?.status != false) billedUnits += 0.5
+                if (rule.lunchPortions > 0 && dayMap[MealType.LUNCH]?.status != false) {
+                    billedUnits += rule.lunchPortions
+                }
+                if (rule.dinner && dayMap[MealType.DINNER]?.status != false) billedUnits += 1.0
 
                 guestCount += dayRecords.sumOf { it.guestCount }
                 subtotal += BillingEngine.daySubtotal(curr, dayMap, config)
@@ -137,6 +141,13 @@ class MessViewModel(
 
     fun toggleMeal(mealType: MealType) {
         val date = _selectedDate.value
+        val rule = BillingEngine.ruleFor(date, state.value.config)
+        val served = when (mealType) {
+            MealType.BREAKFAST -> rule.breakfast
+            MealType.LUNCH -> rule.lunchPortions > 0
+            MealType.DINNER -> rule.dinner
+        }
+        if (!served) return
         viewModelScope.launch {
             val existing = dao.getMeal(date.toString(), mealType)
             val currentStatus = existing?.status ?: true // Default is true (eaten)
@@ -152,9 +163,14 @@ class MessViewModel(
     fun setAllMealsStatus(status: Boolean) {
         val date = _selectedDate.value
         viewModelScope.launch {
-            dao.logMeal(date.toString(), MealType.BREAKFAST, status, System.currentTimeMillis())
-            dao.logMeal(date.toString(), MealType.LUNCH, status, System.currentTimeMillis())
-            if (date.dayOfWeek != DayOfWeek.SATURDAY) {
+            val rule = BillingEngine.ruleFor(date, state.value.config)
+            if (rule.breakfast) {
+                dao.logMeal(date.toString(), MealType.BREAKFAST, status, System.currentTimeMillis())
+            }
+            if (rule.lunchPortions > 0) {
+                dao.logMeal(date.toString(), MealType.LUNCH, status, System.currentTimeMillis())
+            }
+            if (rule.dinner) {
                 dao.logMeal(date.toString(), MealType.DINNER, status, System.currentTimeMillis())
             }
         }
@@ -185,13 +201,29 @@ class MessViewModel(
     fun setRangeStatus(start: LocalDate, end: LocalDate, status: Boolean) {
         val first = if (start.isAfter(end)) end else start
         val last = if (start.isAfter(end)) start else end
+        val config = state.value.config
+        val closedDinners = buildSet {
+            var day = first
+            while (!day.isAfter(last)) {
+                if (!BillingEngine.ruleFor(day, config).dinner) add(day.toString())
+                day = day.plusDays(1)
+            }
+        }
         viewModelScope.launch {
             dao.setMealsStatusForRange(
                 startDate = first.toString(),
                 endDate = last.toString(),
                 status = status,
-                timestamp = System.currentTimeMillis()
+                timestamp = System.currentTimeMillis(),
+                dinnerClosedDates = closedDinners
             )
+        }
+    }
+
+    /** Save a rule for one date; null restores the weekday default. */
+    fun setDayRule(date: LocalDate, rule: DayRule?) {
+        viewModelScope.launch {
+            configDataStore.setDayRule(date, rule)
         }
     }
 

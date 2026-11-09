@@ -8,8 +8,8 @@ import androidx.activity.result.ActivityResult
 import com.messledger.app.data.Config
 import com.messledger.app.data.MealRecord
 import com.messledger.app.data.MealType
+import com.messledger.app.domain.BillingEngine
 import java.io.OutputStreamWriter
-import java.time.DayOfWeek
 import java.time.LocalDate
 
 object DataExportManager {
@@ -36,37 +36,35 @@ object DataExportManager {
                     val date = LocalDate.parse(dateStr)
                     val dayMap = dayRecords.associateBy { it.mealType }
 
-                    val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+                    val rule = BillingEngine.ruleFor(date, config)
 
                     val bStatus = dayMap[MealType.BREAKFAST]?.status ?: true
                     val lStatus = dayMap[MealType.LUNCH]?.status ?: true
-                    val dStatus = if (isSaturday) true else dayMap[MealType.DINNER]?.status ?: true // Sat dinner is NA
-                    val bGuests = dayMap[MealType.BREAKFAST]?.guestCount ?: 0
-                    val lGuests = dayMap[MealType.LUNCH]?.guestCount ?: 0
-                    val dGuests = if (isSaturday) 0 else dayMap[MealType.DINNER]?.guestCount ?: 0
+                    val dStatus = dayMap[MealType.DINNER]?.status ?: true
+                    val bGuests = if (rule.breakfast) dayMap[MealType.BREAKFAST]?.guestCount ?: 0 else 0
+                    val lGuests = if (rule.lunchPortions > 0) dayMap[MealType.LUNCH]?.guestCount ?: 0 else 0
+                    val dGuests = if (rule.dinner) dayMap[MealType.DINNER]?.guestCount ?: 0 else 0
 
                     var eaten = 0
                     var missed = 0
-                    var bill = 0f
 
-                    if (bStatus) { eaten++; bill += config.priceBreakfast } else missed++
-                    if (lStatus) { eaten++; bill += if (isSaturday) config.priceLunch * 2 else config.priceLunch } else missed++
-                    if (dStatus && !isSaturday) { eaten++; bill += config.priceDinner }
-                    if (!dStatus && !isSaturday) { missed++ }
+                    if (rule.breakfast) { if (bStatus) eaten++ else missed++ }
+                    if (rule.lunchPortions > 0) { if (lStatus) eaten++ else missed++ }
+                    if (rule.dinner) { if (dStatus) eaten++ else missed++ }
 
-                    bill += bGuests * config.priceBreakfast
-                    bill += lGuests * (if (isSaturday) config.priceLunch * 2 else config.priceLunch)
-                    if (!isSaturday) {
-                        bill += dGuests * config.priceDinner
+                    val bill = BillingEngine.dayLiability(date, dayMap, config)
+
+                    fun cell(served: Boolean, status: Boolean) = when {
+                        !served -> "N/A"
+                        status -> "Eaten"
+                        else -> "Missed"
                     }
-
-                    bill *= (1.0f + config.taxPercent / 100.0f)
 
                     writer.write(
                         "$dateStr,${date.dayOfWeek.name}," +
-                        "${if (bStatus) "Eaten" else "Missed"}," +
-                        "${if (lStatus) "Eaten" else "Missed"}," +
-                        "${if (isSaturday) "N/A" else if (dStatus) "Eaten" else "Missed"}," +
+                        "${cell(rule.breakfast, bStatus)}," +
+                        "${cell(rule.lunchPortions > 0, lStatus)}," +
+                        "${cell(rule.dinner, dStatus)}," +
                         "$bGuests,$lGuests,$dGuests,$eaten,$missed,%.2f\n".format(bill)
                     )
                 }

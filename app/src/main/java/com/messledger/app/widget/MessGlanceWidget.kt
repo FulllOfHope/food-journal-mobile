@@ -41,7 +41,6 @@ import com.messledger.app.data.MealType
 import com.messledger.app.data.MessLedgerDatabase
 import com.messledger.app.data.ThemeMode
 import com.messledger.app.domain.BillingEngine
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.first
@@ -122,7 +121,7 @@ class MessGlanceWidget : GlanceAppWidget() {
         var day = cycleStart
         while (!day.isAfter(lastElapsed)) {
             val dayMap = byDate[day].orEmpty().associateBy { it.mealType }
-            rebatesUsed += skippedUnits(day, dayMap)
+            rebatesUsed += skippedUnits(day, dayMap, config)
             guests += byDate[day].orEmpty().sumOf { it.guestCount }
             cycleTotal += BillingEngine.dayLiability(day, dayMap, config)
             daysElapsed++
@@ -139,6 +138,7 @@ class MessGlanceWidget : GlanceAppWidget() {
                 cycleTotal = cycleTotal,
                 daysElapsed = daysElapsed,
                 guests = guests,
+                config = config,
                 openIntent = Intent(context, MainActivity::class.java)
             )
         }
@@ -155,10 +155,11 @@ private fun WidgetContent(
     cycleTotal: Float,
     daysElapsed: Int,
     guests: Int,
+    config: Config,
     openIntent: Intent
 ) {
     val palette = paletteFor(isDark)
-    val isSaturday = today.dayOfWeek == DayOfWeek.SATURDAY
+    val rule = BillingEngine.ruleFor(today, config)
     val batch = if (today.dayOfMonth in 3..17) "Batch 1" else "Batch 2"
     val remaining = (allowance - rebatesUsed).coerceAtLeast(0.0)
 
@@ -247,26 +248,42 @@ private fun WidgetContent(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            MealToggle(
-                label = "B",
-                detail = "0.5",
-                eaten = todayMap[MealType.BREAKFAST]?.status ?: true,
-                mealType = MealType.BREAKFAST,
-                palette = palette,
-                modifier = GlanceModifier.defaultWeight()
-            )
+            if (rule.breakfast) {
+                MealToggle(
+                    label = "B",
+                    detail = "0.5",
+                    eaten = todayMap[MealType.BREAKFAST]?.status ?: true,
+                    mealType = MealType.BREAKFAST,
+                    palette = palette,
+                    modifier = GlanceModifier.defaultWeight()
+                )
+            } else {
+                ClosedMeal(
+                    label = "B",
+                    palette = palette,
+                    modifier = GlanceModifier.defaultWeight()
+                )
+            }
             Spacer(modifier = GlanceModifier.width(6.dp))
-            MealToggle(
-                label = "L",
-                detail = if (isSaturday) "2.0" else "1.0",
-                eaten = todayMap[MealType.LUNCH]?.status ?: true,
-                mealType = MealType.LUNCH,
-                palette = palette,
-                modifier = GlanceModifier.defaultWeight()
-            )
+            if (rule.lunchPortions > 0) {
+                MealToggle(
+                    label = "L",
+                    detail = "%.1f".format(rule.lunchPortions.toDouble()),
+                    eaten = todayMap[MealType.LUNCH]?.status ?: true,
+                    mealType = MealType.LUNCH,
+                    palette = palette,
+                    modifier = GlanceModifier.defaultWeight()
+                )
+            } else {
+                ClosedMeal(
+                    label = "L",
+                    palette = palette,
+                    modifier = GlanceModifier.defaultWeight()
+                )
+            }
             Spacer(modifier = GlanceModifier.width(6.dp))
 
-            if (isSaturday) {
+            if (!rule.dinner) {
                 ClosedMeal(
                     label = "D",
                     palette = palette,
@@ -383,8 +400,14 @@ class ToggleMealAction : ActionCallback {
         val mealType = MealType.valueOf(mealTypeStr)
 
         val today = LocalDate.now()
-        // Saturday dinner is closed; never write a record for it.
-        if (mealType == MealType.DINNER && today.dayOfWeek == DayOfWeek.SATURDAY) return
+        val config = ConfigDataStore(context).configFlow.first()
+        val rule = BillingEngine.ruleFor(today, config)
+        val served = when (mealType) {
+            MealType.BREAKFAST -> rule.breakfast
+            MealType.LUNCH -> rule.lunchPortions > 0
+            MealType.DINNER -> rule.dinner
+        }
+        if (!served) return
 
         val dao = MessLedgerDatabase.getDatabase(context).messLedgerDao()
         val current = dao.getMeal(today.toString(), mealType)
@@ -403,12 +426,18 @@ private fun cycleRange(date: LocalDate): Pair<LocalDate, LocalDate> {
     return start to end
 }
 
-private fun skippedUnits(date: LocalDate, records: Map<MealType, MealRecord>): Double {
-    val isSaturday = date.dayOfWeek == DayOfWeek.SATURDAY
+private fun skippedUnits(
+    date: LocalDate,
+    records: Map<MealType, MealRecord>,
+    config: Config
+): Double {
+    val rule = BillingEngine.ruleFor(date, config)
     var units = 0.0
-    if (records[MealType.BREAKFAST]?.status == false) units += 0.5
-    if (records[MealType.LUNCH]?.status == false) units += if (isSaturday) 2.0 else 1.0
-    if (records[MealType.DINNER]?.status == false && !isSaturday) units += 1.0
+    if (rule.breakfast && records[MealType.BREAKFAST]?.status == false) units += 0.5
+    if (rule.lunchPortions > 0 && records[MealType.LUNCH]?.status == false) {
+        units += rule.lunchPortions
+    }
+    if (rule.dinner && records[MealType.DINNER]?.status == false) units += 1.0
     return units
 }
 
