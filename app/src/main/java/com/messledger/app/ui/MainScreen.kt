@@ -1,5 +1,10 @@
 package com.messledger.app.ui
 
+import android.Manifest
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,8 +47,9 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,44 +57,57 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.messledger.app.data.ThemeMode
+import com.messledger.app.updates.UpdateManager
 import com.messledger.app.ui.navigation.MessNavHost
 import com.messledger.app.ui.navigation.NavRoute
 import com.messledger.app.ui.theme.LocalMessColors
-import com.messledger.app.ui.theme.NightCanvasTop
 import com.messledger.app.viewmodel.MessViewModel
-import java.time.LocalTime
-import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(
     viewModel: MessViewModel,
     isDark: Boolean,
     themeMode: ThemeMode,
+    updateManager: UpdateManager,
     onToggleTheme: () -> Unit,
     onResetTheme: () -> Unit
 ) {
     val navController = rememberNavController()
     val colors = LocalMessColors.current
+    val context = LocalContext.current
+
+    val availableUpdate by updateManager.availableUpdate.collectAsState()
+    val sheetVisible by updateManager.sheetVisible.collectAsState()
+    val needsPermission by updateManager.needsNotificationPermission.collectAsState()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> updateManager.onNotificationPermissionResult(granted) }
+
+    LaunchedEffect(needsPermission) {
+        if (needsPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            updateManager.onPermissionRequestShown()
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        updateManager.messages.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .drawBehind {
-                if (isDark) {
-                    // AMOLED: a genuinely black page. No lamp wash, no grain.
-                    drawRect(NightCanvasTop)
-                } else {
-                    drawRect(colors.background)
-                }
-            }
+            .background(colors.background)
     ) {
-        // A phone in portrait keeps the familiar bottom bar. Anything wider —
-        // tablet, foldable, or a phone on its side — earns a navigation rail.
         val useRail = maxWidth >= 600.dp || maxWidth > maxHeight
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
@@ -110,41 +129,33 @@ fun MainScreen(
             bottomBar = {
                 if (!useRail) {
                     NavigationBar(
-                        containerColor = if (isDark) colors.surface.copy(alpha = 0.94f) else Color.Transparent,
+                        containerColor = colors.surface,
                         tonalElevation = 0.dp,
                         windowInsets = NavigationBarDefaults.windowInsets,
-                        modifier = if (isDark) {
-                            Modifier.drawBehind {
-                                drawLine(
-                                    color = colors.ruleDark,
-                                    start = Offset(0f, 0f),
-                                    end = Offset(size.width, 0f),
-                                    strokeWidth = 1.dp.toPx()
-                                )
-                            }
-                        } else {
-                            Modifier
+                        modifier = Modifier.drawBehind {
+                            drawLine(
+                                color = colors.border,
+                                start = Offset(0f, 0f),
+                                end = Offset(size.width, 0f),
+                                strokeWidth = 1.dp.toPx()
+                            )
                         }
                     ) {
-                        val itemColors = if (isDark) {
-                            NavigationBarItemDefaults.colors(
-                                selectedIconColor = colors.textPrimary,
-                                selectedTextColor = colors.textPrimary,
-                                indicatorColor = colors.brass.copy(alpha = 0.16f),
-                                unselectedIconColor = colors.textTertiary,
-                                unselectedTextColor = colors.textTertiary
-                            )
-                        } else {
-                            NavigationBarItemDefaults.colors()
-                        }
-
                         NavRoute.values().forEach { route ->
+                            val selected = currentRoute == route.name
                             NavigationBarItem(
-                                icon = { Icon(route.icon, contentDescription = route.title) },
-                                label = { Text(route.title) },
-                                selected = currentRoute == route.name,
+                                icon = { NavIcon(route, selected) },
+                                label = { Text(route.title, maxLines = 1) },
+                                selected = selected,
+                                alwaysShowLabel = true,
                                 onClick = { navController.navigateTo(route) },
-                                colors = itemColors
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = colors.tangerine,
+                                    selectedTextColor = colors.tangerine,
+                                    unselectedIconColor = colors.textTertiary,
+                                    unselectedTextColor = colors.textTertiary,
+                                    indicatorColor = Color.Transparent
+                                )
                             )
                         }
                     }
@@ -161,32 +172,36 @@ fun MainScreen(
                     NavigationRail(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .navigationBarsPadding(),
-                        containerColor = Color.Transparent,
+                            .navigationBarsPadding()
+                            .drawBehind {
+                                drawLine(
+                                    color = colors.border,
+                                    start = Offset(size.width - 1.dp.toPx(), 0f),
+                                    end = Offset(size.width - 1.dp.toPx(), size.height),
+                                    strokeWidth = 1.dp.toPx()
+                                )
+                            },
+                        containerColor = colors.surface,
                         windowInsets = WindowInsets(0, 0, 0, 0)
                     ) {
                         Spacer(modifier = Modifier.weight(1f))
-
                         NavRoute.values().forEach { route ->
+                            val selected = currentRoute == route.name
                             NavigationRailItem(
-                                icon = { Icon(route.icon, contentDescription = route.title) },
-                                label = { Text(route.title) },
-                                selected = currentRoute == route.name,
+                                icon = { NavIcon(route, selected) },
+                                label = { Text(route.title, maxLines = 1) },
+                                selected = selected,
+                                alwaysShowLabel = true,
                                 onClick = { navController.navigateTo(route) },
-                                colors = if (isDark) {
-                                    NavigationRailItemDefaults.colors(
-                                        selectedIconColor = colors.textPrimary,
-                                        selectedTextColor = colors.textPrimary,
-                                        indicatorColor = colors.brass.copy(alpha = 0.16f),
-                                        unselectedIconColor = colors.textTertiary,
-                                        unselectedTextColor = colors.textTertiary
-                                    )
-                                } else {
-                                    NavigationRailItemDefaults.colors()
-                                }
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = colors.tangerine,
+                                    selectedTextColor = colors.tangerine,
+                                    unselectedIconColor = colors.textTertiary,
+                                    unselectedTextColor = colors.textTertiary,
+                                    indicatorColor = Color.Transparent
+                                )
                             )
                         }
-
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
@@ -194,17 +209,44 @@ fun MainScreen(
                 MessNavHost(
                     navController = navController,
                     viewModel = viewModel,
+                    updateManager = updateManager,
                     modifier = Modifier.weight(1f)
                 )
             }
         }
     }
+
+    if (sheetVisible && availableUpdate != null) {
+        UpdateSheet(
+            update = availableUpdate!!,
+            onDismiss = { updateManager.dismissSheet() },
+            onLater = { updateManager.later() },
+            onSkip = { updateManager.skipThisVersion() }
+        )
+    }
+}
+
+/** Tangerine icon and text plus one small dot; no filled pill. */
+@Composable
+private fun NavIcon(route: NavRoute, selected: Boolean) {
+    val colors = LocalMessColors.current
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(route.icon, contentDescription = route.title, modifier = Modifier.size(20.dp))
+        if (selected) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .size(3.dp)
+                    .background(colors.tangerine, CircleShape)
+            )
+        }
+    }
 }
 
 /**
- * A slim masthead instead of a full app bar: the journal name at the left,
- * one icon-only lamp switch at the far right. Long-press returns the switch
- * to following the phone's system theme.
+ * A slim masthead: the journal name at the left, one hairline rule under it in
+ * both modes, and one icon-only lamp switch at the far right. Long-press
+ * returns the switch to following the phone's system theme.
  */
 @Composable
 private fun LedgerTopBar(
@@ -218,25 +260,16 @@ private fun LedgerTopBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isDark) Color.Transparent else colors.background)
+            .background(colors.background)
             .statusBarsPadding()
             .drawBehind {
-                if (isDark) {
-                    // A double hairline, like the ruled edge of a ledger page.
-                    val bottom = size.height - 3.dp.toPx()
-                    drawLine(
-                        color = colors.ruleDark,
-                        start = Offset(0f, bottom),
-                        end = Offset(size.width, bottom),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    drawLine(
-                        color = colors.rule.copy(alpha = 0.75f),
-                        start = Offset(0f, bottom + 2.dp.toPx()),
-                        end = Offset(size.width, bottom + 2.dp.toPx()),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
+                val bottom = size.height - 1.dp.toPx()
+                drawLine(
+                    color = colors.border,
+                    start = Offset(0f, bottom),
+                    end = Offset(size.width, bottom),
+                    strokeWidth = 1.dp.toPx()
+                )
             }
     ) {
         Row(
@@ -247,14 +280,12 @@ private fun LedgerTopBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Mess Ledger",
+                text = "Food Journal",
                 style = MaterialTheme.typography.titleMedium,
                 color = colors.textPrimary
             )
 
             Spacer(modifier = Modifier.weight(1f))
-
-            NightCanteenNote()
 
             ThemeSwitch(
                 isDark = isDark,
@@ -282,13 +313,11 @@ private fun ThemeSwitch(
             .size(40.dp)
             .clip(CircleShape)
             .drawBehind {
-                if (isDark) {
-                    drawCircle(
-                        color = colors.ruleDark,
-                        radius = size.minDimension / 2f - 2.dp.toPx(),
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-                }
+                drawCircle(
+                    color = colors.borderStrong,
+                    radius = size.minDimension / 2f - 2.dp.toPx(),
+                    style = Stroke(width = 1.dp.toPx())
+                )
             }
             .combinedClickable(
                 onClick = onToggleTheme,
@@ -310,51 +339,14 @@ private fun ThemeSwitch(
         }
 
         if (followsSystem) {
-            // One small brass dot under the icon: still just an icon, but it
-            // says the switch is following the phone rather than locked.
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .offset(y = (-6).dp)
                     .size(3.dp)
-                    .background(colors.brass, CircleShape)
+                    .background(colors.textTertiary, CircleShape)
             )
         }
-    }
-}
-
-/**
- * A very small late-night easter egg: between midnight and 4 AM the masthead
- * admits that the canteen is still awake.
- */
-@Composable
-private fun NightCanteenNote() {
-    val colors = LocalMessColors.current
-
-    val now by produceState(initialValue = LocalTime.now()) {
-        while (true) {
-            delay(60_000)
-            value = LocalTime.now()
-        }
-    }
-
-    if (now.hour !in 0..3) return
-
-    Row(
-        modifier = Modifier.padding(end = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(5.dp)
-                .background(colors.brass, CircleShape)
-        )
-        Spacer(modifier = Modifier.size(6.dp))
-        Text(
-            text = "☕ Night canteen",
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.brass
-        )
     }
 }
 

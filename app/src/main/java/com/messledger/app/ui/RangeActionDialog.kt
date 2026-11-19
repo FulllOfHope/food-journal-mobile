@@ -1,6 +1,5 @@
 package com.messledger.app.ui
 
-import android.app.DatePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,23 +8,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.EditCalendar
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.EditCalendar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.messledger.app.ui.theme.LocalMessColors
@@ -49,92 +46,68 @@ fun RangeActionDialog(
 ) {
     var start by remember(initialStart, initialEnd) { mutableStateOf(initialStart) }
     var end by remember(initialStart, initialEnd) { mutableStateOf(initialEnd) }
+    var picking by remember { mutableStateOf<RangePicker?>(null) }
 
-    val context = LocalContext.current
     val colors = LocalMessColors.current
     val haptics = LocalHapticFeedback.current
-
-    fun pick(initial: LocalDate, onPicked: (LocalDate) -> Unit) {
-        DatePickerDialog(
-            context,
-            { _, year, month, dayOfMonth -> onPicked(LocalDate.of(year, month + 1, dayOfMonth)) },
-            initial.year,
-            initial.monthValue - 1,
-            initial.dayOfMonth
-        ).show()
-    }
-
     val dayCount = ChronoUnit.DAYS.between(start, end) + 1
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.surface,
-        titleContentColor = colors.textPrimary,
-        textContentColor = colors.textSecondary,
-        title = { Text("Mark a range") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Set every meal in this span at once. Each date follows its saved day rules; by default Saturday counts lunch twice and closes dinner.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.textSecondary
-                )
-
-                RangeDateField(
-                    label = "From",
-                    date = start,
-                    onClick = {
-                        pick(start) { picked ->
-                            start = picked
-                            if (picked.isAfter(end)) end = picked
-                        }
-                    }
-                )
-                RangeDateField(
-                    label = "To",
-                    date = end,
-                    onClick = {
-                        pick(end) { picked ->
-                            end = picked
-                            if (picked.isBefore(start)) start = picked
-                        }
-                    }
-                )
-
-                Text(
-                    text = if (dayCount == 1L) "1 day included" else "$dayCount days included",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.brass
-                )
-            }
+    GrooveBottomSheet(
+        title = "Mark a range",
+        copy = "Set every meal in this span at once. Each date follows its saved day rules; by default Saturday counts lunch twice and closes dinner.",
+        onDismiss = onDismiss,
+        primaryLabel = "Mark eaten",
+        onPrimary = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onApply(start, end, true)
         },
-        confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onApply(start, end, false)
-                    }
-                ) {
-                    Text("Mark skipped", color = colors.missed)
-                }
-                TextButton(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onApply(start, end, true)
-                    }
-                ) {
-                    Text("Mark eaten", color = colors.eaten)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = colors.textSecondary)
-            }
+        secondaryLabel = "Mark skipped",
+        onSecondary = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onApply(start, end, false)
         }
-    )
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            RangeDateField(
+                label = "From",
+                date = start,
+                onClick = { picking = RangePicker.START }
+            )
+            RangeDateField(
+                label = "To",
+                date = end,
+                onClick = { picking = RangePicker.END }
+            )
+
+            Text(
+                text = if (dayCount == 1L) "1 day included" else "$dayCount days included",
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textSecondary
+            )
+        }
+    }
+
+    picking?.let { target ->
+        GrooveDatePickerDialog(
+            initialDate = if (target == RangePicker.START) start else end,
+            onDismiss = { picking = null },
+            onDateSelected = { picked ->
+                when (target) {
+                    RangePicker.START -> {
+                        start = picked
+                        if (picked.isAfter(end)) end = picked
+                    }
+                    RangePicker.END -> {
+                        end = picked
+                        if (picked.isBefore(start)) start = picked
+                    }
+                }
+            }
+        )
+    }
 }
+
+private enum class RangePicker { START, END }
 
 @Composable
 private fun RangeDateField(
@@ -147,7 +120,11 @@ private fun RangeDateField(
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        border = BorderStroke(1.dp, colors.ruleDark)
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.Transparent,
+            contentColor = colors.textPrimary
+        ),
+        border = BorderStroke(1.dp, colors.borderStrong)
     ) {
         Icon(
             imageVector = Icons.Rounded.EditCalendar,
@@ -166,7 +143,8 @@ private fun RangeDateField(
             text = date.format(rangeFormatter),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
-            modifier = Modifier.padding(start = 8.dp)
+            modifier = Modifier.padding(start = 8.dp),
+            maxLines = 1
         )
     }
 }

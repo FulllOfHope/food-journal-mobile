@@ -106,6 +106,16 @@ object BillingEngine {
     }
 
     /**
+     * The billing cycle containing [date]: 3rd of a month through the 2nd of
+     * the next. Dates on the 1st or 2nd belong to the previous month's cycle.
+     */
+    fun cycleRange(date: LocalDate): Pair<LocalDate, LocalDate> {
+        val startMonth = if (date.dayOfMonth < 3) date.minusMonths(1) else date
+        val start = startMonth.withDayOfMonth(3)
+        return start to start.plusMonths(1).minusDays(1)
+    }
+
+    /**
      * Group records by cycle and batch.
      * Cycle runs from 3rd of current month to 2nd of next month.
      * Batch 1: 3rd to 17th

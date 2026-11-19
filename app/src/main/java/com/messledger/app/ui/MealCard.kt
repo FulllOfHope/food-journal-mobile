@@ -1,9 +1,6 @@
 package com.messledger.app.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -13,13 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Remove
@@ -28,16 +23,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -47,11 +37,15 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.messledger.app.data.MealType
-import com.messledger.app.theme.messLedgerBackground
-import com.messledger.app.theme.messLedgerBorder
-import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
+import com.messledger.app.ui.theme.messSurface
+import com.messledger.app.ui.theme.rememberMotionDuration
 
+/**
+ * A flat meal row: 12dp radius, one hairline border, no corner ticks, no
+ * status chips and no spring stamp. The row's only state marker is a small
+ * ledger dot that crossfades in 120ms.
+ */
 @Composable
 fun MealCard(
     mealType: MealType,
@@ -59,48 +53,39 @@ fun MealCard(
     status: Boolean,
     previousStatus: Boolean? = null,
     guestCount: Int = 0,
+    recorded: Boolean = true,
     isActive: Boolean = false,
     feast: Boolean = false,
     onClick: () -> Unit,
     onGuestChange: ((Int) -> Unit)? = null
 ) {
-    val isDark = LocalIsNight.current
     val colors = LocalMessColors.current
-    val disabled = value == 0.0
     val haptics = LocalHapticFeedback.current
+    val duration = rememberMotionDuration(120)
+    val disabled = value == 0.0
 
-    // Spring animation for the stamp.
-    val scale = animateFloatAsState(
-        targetValue = if (status) 1f else 0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "stamp_scale"
+    val markerScale by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = tween(duration),
+        label = "meal_marker_scale"
     )
-
-    // A single gold pulse when Saturday lunch is marked eaten. It is quiet,
-    // one-shot, and never loops.
-    val feastPulse = remember { Animatable(0f) }
-    var wasEaten by remember { mutableStateOf(status) }
-    LaunchedEffect(status) {
-        if (feast && status && !wasEaten) {
-            feastPulse.snapTo(0f)
-            feastPulse.animateTo(1f, tween(360))
-            feastPulse.animateTo(0f, tween(420))
-        }
-        wasEaten = status
-    }
+    val markerAlpha by animateFloatAsState(
+        targetValue = if (disabled) 0.5f else 1f,
+        animationSpec = tween(duration),
+        label = "meal_marker_alpha"
+    )
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .messLedgerBorder(isActive = status)
-            .messLedgerBackground()
+            .messSurface(isActive = isActive && !disabled)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = !disabled) {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onClick()
                 }
                 .padding(16.dp),
@@ -109,33 +94,26 @@ fun MealCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    MealStateDot(
+                        status = status,
+                        recorded = recorded,
+                        closed = disabled,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .alpha(markerAlpha)
+                            .scale(markerScale)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = mealType.name.lowercase().replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.titleLarge,
-                        color = if (disabled) colors.textTertiary.copy(alpha = 0.65f) else colors.textPrimary
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (disabled) colors.textTertiary else colors.textPrimary
                     )
-                    if (feast && !disabled) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        MealBadge(
-                            text = "Feast",
-                            color = colors.brass,
-                            modifier = Modifier.scale(1f + feastPulse.value * 0.12f)
-                        )
-                    }
-                    if (isActive && !disabled) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        MealBadge(
-                            text = "Now",
-                            color = colors.brass
-                        )
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // THE AUDIT TRAIL: Render prior value with a hand-drawn
-                    // diagonal pencil strike-through.
                     if (previousStatus != null && previousStatus != status) {
                         val prevText = if (previousStatus) "Eaten" else "Skipped"
                         Text(
@@ -147,7 +125,7 @@ fun MealCard(
                                     color = colors.textTertiary,
                                     start = Offset(0f, size.height),
                                     end = Offset(size.width, 0f),
-                                    strokeWidth = 1.5.dp.toPx(),
+                                    strokeWidth = 1.dp.toPx(),
                                     cap = StrokeCap.Round
                                 )
                             }
@@ -155,60 +133,23 @@ fun MealCard(
                         Spacer(modifier = Modifier.width(8.dp))
                     }
 
-                    val currentText = if (disabled) "Closed" else if (status) "Eaten" else "Skipped"
+                    val currentText = when {
+                        disabled -> "Closed"
+                        !recorded -> "Untouched"
+                        status -> "Eaten"
+                        else -> "Skipped"
+                    }
                     Text(
                         text = "$currentText ($value)",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (disabled) colors.textTertiary.copy(alpha = 0.65f) else colors.textPrimary
+                        color = if (disabled) colors.textTertiary else colors.textSecondary
                     )
                     if (guestCount > 0) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "• $guestCount guest${if (guestCount == 1) "" else "s"}",
+                            text = "+$guestCount",
                             style = MaterialTheme.typography.labelSmall,
-                            color = colors.brass
-                        )
-                    }
-                }
-            }
-
-            // TACTILE ANIMATION: a red stamp by day, a copper seal by night.
-            if (!disabled && scale.value > 0.01f) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .scale(scale.value)
-                        .rotate(if (isDark) 0f else -15f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isDark) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val center = Offset(size.width / 2f, size.height / 2f)
-                            val hairline = 1.dp.toPx()
-
-                            drawCircle(
-                                color = colors.brass.copy(alpha = 0.45f),
-                                radius = size.minDimension / 2f - hairline,
-                                center = center,
-                                style = Stroke(width = hairline)
-                            )
-                            drawCircle(
-                                color = colors.brass.copy(alpha = 0.55f),
-                                radius = size.minDimension * 0.34f,
-                                center = center,
-                                style = Stroke(width = hairline)
-                            )
-                            drawCircle(
-                                color = colors.accentRed,
-                                radius = size.minDimension * 0.21f,
-                                center = center
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "✔",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = colors.accentRed
+                            color = colors.textTertiary
                         )
                     }
                 }
@@ -220,7 +161,7 @@ fun MealCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(if (isDark) colors.rule else colors.rule.copy(alpha = 0.7f))
+                    .background(colors.border)
             )
 
             Row(
@@ -237,10 +178,7 @@ fun MealCard(
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (guestCount > 0) {
-                    IconButton(
-                        onClick = { onGuestChange(-1) },
-                        modifier = Modifier.size(32.dp)
-                    ) {
+                    IconButton(onClick = { onGuestChange(-1) }, modifier = Modifier.size(32.dp)) {
                         Icon(
                             Icons.Rounded.Remove,
                             contentDescription = "Remove guest portion",
@@ -249,20 +187,17 @@ fun MealCard(
                         )
                     }
                     Text(
-                        text = guestCount.toString(),
+                        text = "+$guestCount",
                         style = MaterialTheme.typography.labelLarge,
-                        color = colors.brass
+                        color = colors.textSecondary
                     )
                 }
 
-                IconButton(
-                    onClick = { onGuestChange(1) },
-                    modifier = Modifier.size(32.dp)
-                ) {
+                IconButton(onClick = { onGuestChange(1) }, modifier = Modifier.size(32.dp)) {
                     Icon(
                         Icons.Rounded.Add,
                         contentDescription = "Add guest portion",
-                        tint = colors.brass,
+                        tint = colors.tangerine,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -271,22 +206,55 @@ fun MealCard(
     }
 }
 
+/** Leaf dot = eaten, hollow leaf = untouched, hollow tangerine ring = skipped, dash = closed. */
 @Composable
-private fun MealBadge(
-    text: String,
-    color: Color,
-    modifier: Modifier = Modifier
+fun MealStateDot(
+    status: Boolean,
+    recorded: Boolean,
+    closed: Boolean,
+    modifier: Modifier = Modifier,
+    containerColor: Color? = null
 ) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(50))
-            .background(color.copy(alpha = 0.14f))
-            .padding(horizontal = 7.dp, vertical = 2.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = color
-        )
+    val colors = LocalMessColors.current
+    Canvas(modifier = modifier) {
+        val radius = size.minDimension / 2f
+        val center = Offset(radius, radius)
+        when {
+            closed -> drawLine(
+                color = colors.textTertiary.copy(alpha = 0.6f),
+                start = Offset(0f, radius),
+                end = Offset(size.width, radius),
+                strokeWidth = 1.5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            !recorded -> drawCircle(
+                color = colors.leaf,
+                radius = radius - 1.dp.toPx(),
+                center = center,
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+            status -> drawCircle(color = colors.leaf, radius = radius, center = center)
+            else -> {
+                // Hollow tangerine ring with a slash. The slash's cut is painted
+                // in the resolved container colour so it works on range cells.
+                drawCircle(
+                    color = colors.warning,
+                    radius = radius - 1.dp.toPx(),
+                    center = center,
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+                val start = Offset(size.width * 0.22f, size.height * 0.78f)
+                val end = Offset(size.width * 0.78f, size.height * 0.22f)
+                if (containerColor != null) {
+                    drawLine(containerColor, start, end, strokeWidth = 3.dp.toPx())
+                }
+                drawLine(
+                    color = colors.warning,
+                    start = start,
+                    end = end,
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+        }
     }
 }

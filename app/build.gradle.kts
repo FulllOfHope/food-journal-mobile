@@ -13,8 +13,8 @@ android {
         applicationId = "com.messledger.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.5.1"
+        versionCode = 9
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -75,6 +75,9 @@ dependencies {
     implementation(libs.androidx.glance.material3)
 
     // Tests & Debug
+    // org.json is part of the Android platform; local JVM tests need the
+    // matching real implementation because android.jar only carries stubs.
+    testImplementation("org.json:json:20240303")
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

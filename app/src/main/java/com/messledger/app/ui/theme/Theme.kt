@@ -15,124 +15,155 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+/**
+ * Every semantic colour a component needs. The short legacy names are kept as
+ * read-only aliases so older call sites keep compiling, but new code should use
+ * the semantic roles (border, tangerine, warning, …).
+ */
 @Immutable
 data class MessColors(
     val background: Color,
     val surface: Color,
+    val elevated: Color,
+    val border: Color,
+    val borderStrong: Color,
     val textPrimary: Color,
     val textSecondary: Color,
     val textTertiary: Color,
-    val rule: Color,
-    val ruleDark: Color,
-    val accentRed: Color,
-    // Specialized
-    val brass: Color = Brass,
-    val eaten: Color = Leaf,
-    val missed: Color = StampRed,
-    val bark: Color = Bark,
-    val leaf: Color = Leaf,
-    val fruit: Color = Fruit,
-    val astrolabeRing: Color = AstrolabeRing
-)
-
-/**
- * The resolved theme, after the saved preference has been applied. Components
- * read this instead of [isSystemInDarkTheme] so the masthead switch can
- * override the phone without leaving half the app behind.
- */
-val LocalIsNight = staticCompositionLocalOf { false }
-
-val LocalMessColors = staticCompositionLocalOf {
-    MessColors(
-        background = Color.Unspecified,
-        surface = Color.Unspecified,
-        textPrimary = Color.Unspecified,
-        textSecondary = Color.Unspecified,
-        textTertiary = Color.Unspecified,
-        rule = Color.Unspecified,
-        ruleDark = Color.Unspecified,
-        accentRed = Color.Unspecified
-    )
+    val tangerine: Color,
+    val onTangerine: Color,
+    val leaf: Color,
+    val brass: Color,
+    val warning: Color,
+    val success: Color,
+    val bark: Color
+) {
+    val rule: Color get() = border
+    val ruleDark: Color get() = borderStrong
+    val accentRed: Color get() = warning
+    val missed: Color get() = warning
+    val eaten: Color get() = success
+    val fruit: Color get() = tangerine
 }
 
-private val LightMessColors = MessColors(
-    background = Paper,
-    surface = CardLight,
-    textPrimary = Ink,
-    textSecondary = InkSoft,
-    textTertiary = Pencil,
-    rule = Rule,
-    ruleDark = RuleDk,
-    accentRed = StampRed,
-    brass = Brass,
-    eaten = Leaf,
-    missed = StampRed,
-    bark = Bark,
-    leaf = Leaf,
-    fruit = Fruit
+/** Resolved after the saved preference is applied, so overrides never leave half the app behind. */
+val LocalIsNight = staticCompositionLocalOf { false }
+
+val LightMessColors = MessColors(
+    background = PageLight,
+    surface = SurfaceLight,
+    elevated = ElevatedLight,
+    border = BorderLight,
+    borderStrong = BorderStrongLight,
+    textPrimary = TextPrimaryLight,
+    textSecondary = TextSecondaryLight,
+    textTertiary = TextTertiaryLight,
+    tangerine = TangerineLight,
+    onTangerine = OnTangerineLight,
+    leaf = LeafLight,
+    brass = BrassLight,
+    warning = WarningLight,
+    success = SuccessLight,
+    bark = BarkLight
 )
 
-private val DarkMessColors = MessColors(
-    background = VoidColor,
-    surface = CardDark,
-    textPrimary = TextLight,
-    textSecondary = TextSoft,
-    textTertiary = TextDim,
-    rule = EtchedRule,
-    ruleDark = EtchedRuleStrong,
-    accentRed = Ember,
-    brass = Brass,
-    eaten = Sage,
-    missed = Ember,
-    bark = NightBark,
-    leaf = NightLeaf,
-    fruit = NightFruit,
-    astrolabeRing = EtchedRuleStrong
+val DarkMessColors = MessColors(
+    background = PageDark,
+    surface = SurfaceDark,
+    elevated = ElevatedDark,
+    border = BorderDark,
+    borderStrong = BorderStrongDark,
+    textPrimary = TextPrimaryDark,
+    textSecondary = TextSecondaryDark,
+    textTertiary = TextTertiaryDark,
+    tangerine = TangerineDark,
+    onTangerine = OnTangerineDark,
+    leaf = LeafDark,
+    brass = BrassDark,
+    warning = WarningDark,
+    success = SuccessDark,
+    bark = BarkDark
+)
+
+/** Strict AMOLED: only when [FoodJournalTheme] is explicitly asked for it. */
+val AmoledMessColors = DarkMessColors.copy(
+    background = PageAmoled,
+    surface = SurfaceAmoled,
+    elevated = SurfaceAmoled
+)
+
+val LocalMessColors = staticCompositionLocalOf { LightMessColors }
+
+private val LightColorScheme = lightColorScheme(
+    primary = TangerineLight,
+    onPrimary = OnTangerineLight,
+    secondary = BrassLight,
+    onSecondary = SurfaceLight,
+    tertiary = LeafLight,
+    onTertiary = SurfaceLight,
+    background = PageLight,
+    onBackground = TextPrimaryLight,
+    surface = SurfaceLight,
+    onSurface = TextPrimaryLight,
+    surfaceVariant = ElevatedLight,
+    onSurfaceVariant = TextSecondaryLight,
+    outline = BorderLight,
+    outlineVariant = BorderStrongLight,
+    error = WarningLight,
+    onError = SurfaceLight
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = TextLight,
-    onPrimary = VoidColor,
-    secondary = Brass,
-    onSecondary = VoidColor,
-    tertiary = Ember,
-    onTertiary = VoidColor,
-    background = VoidColor,
-    onBackground = TextLight,
-    surface = CardDark,
-    onSurface = TextLight,
-    surfaceVariant = NightSurfaceVariant,
-    onSurfaceVariant = TextSoft,
-    outline = EtchedRuleStrong,
-    outlineVariant = EtchedRule,
-    error = Ember,
-    onError = VoidColor
+    primary = TangerineDark,
+    onPrimary = PageDark,
+    secondary = BrassDark,
+    onSecondary = PageDark,
+    tertiary = LeafDark,
+    onTertiary = PageDark,
+    background = PageDark,
+    onBackground = TextPrimaryDark,
+    surface = SurfaceDark,
+    onSurface = TextPrimaryDark,
+    surfaceVariant = ElevatedDark,
+    onSurfaceVariant = TextSecondaryDark,
+    outline = BorderDark,
+    outlineVariant = BorderStrongDark,
+    error = WarningDark,
+    onError = PageDark
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Ink,
-    background = Paper,
-    surface = CardLight,
-    onPrimary = Paper,
-    onBackground = Ink,
-    onSurface = Ink,
-    error = StampRed
+private val AmoledColorScheme = DarkColorScheme.copy(
+    background = PageAmoled,
+    surface = SurfaceAmoled
 )
 
+/**
+ * @param amoled opt-in strict AMOLED canvas (#000000 / #14110E). The default
+ * dark canvas stays the warmer #0F0D0B / #171411 pair.
+ */
 @Composable
 fun FoodJournalTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    amoled: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val customColors = if (darkTheme) DarkMessColors else LightMessColors
+    val colorScheme = when {
+        darkTheme && amoled -> AmoledColorScheme
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+    val customColors = when {
+        darkTheme && amoled -> AmoledMessColors
+        darkTheme -> DarkMessColors
+        else -> LightMessColors
+    }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            window.navigationBarColor = colorScheme.background.toArgb()
+            window.statusBarColor = customColors.background.toArgb()
+            window.navigationBarColor = customColors.background.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme
                 isAppearanceLightNavigationBars = !darkTheme

@@ -50,7 +50,7 @@ class MessViewModel(
     ) { date, config ->
         date to config
     }.flatMapLatest { (date, config) ->
-        val (cycleStart, cycleEnd) = getCycleRange(date)
+        val (cycleStart, cycleEnd) = BillingEngine.cycleRange(date)
         
         combine(
             dao.getMealsForDate(date.toString()),
@@ -260,13 +260,6 @@ class MessViewModel(
         viewModelScope.launch {
             dao.insertMeals(records)
         }
-    }
-
-    private fun getCycleRange(date: LocalDate): Pair<LocalDate, LocalDate> {
-        val startMonth = if (date.dayOfMonth < 3) date.minusMonths(1) else date
-        val start = startMonth.withDayOfMonth(3)
-        val end = start.plusMonths(1).minusDays(1)
-        return start to end
     }
 }
 

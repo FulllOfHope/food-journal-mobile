@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.messledger.app.updates.UpdateManager
 import com.messledger.app.ui.screens.LogScreen
 import com.messledger.app.ui.screens.MonthScreen
 import com.messledger.app.ui.screens.TodayScreen
@@ -26,6 +27,7 @@ enum class NavRoute(val title: String, val icon: ImageVector) {
 fun MessNavHost(
     navController: NavHostController,
     viewModel: com.messledger.app.viewmodel.MessViewModel,
+    updateManager: UpdateManager,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -43,7 +45,7 @@ fun MessNavHost(
             MonthScreen(viewModel)
         }
         composable(NavRoute.SETTINGS.name) {
-            com.messledger.app.ui.screens.SettingsScreen(viewModel)
+            com.messledger.app.ui.screens.SettingsScreen(viewModel, updateManager)
         }
     }
 }

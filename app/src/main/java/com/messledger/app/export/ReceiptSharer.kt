@@ -4,11 +4,17 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
 import com.messledger.app.data.Config
+import com.messledger.app.ui.theme.BrassLight
+import com.messledger.app.ui.theme.BorderLight
+import com.messledger.app.ui.theme.PageLight
+import com.messledger.app.ui.theme.TextPrimaryLight
+import com.messledger.app.ui.theme.TextSecondaryLight
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
@@ -98,14 +104,15 @@ object ReceiptSharer {
         val margin = 72f
         val height = 990
 
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        canvas.drawColor(Color.WHITE)
+        canvas.drawColor(PageLight.toArgb())
 
-        val ink = Color.rgb(28, 28, 28)
-        val soft = Color.rgb(110, 108, 102)
-        val gold = Color.rgb(150, 112, 40)
-        val rule = Color.rgb(214, 208, 194)
+        // The PNG is the paper copy of the same light palette used on screen.
+        val ink = TextPrimaryLight.toArgb()
+        val soft = TextSecondaryLight.toArgb()
+        val gold = BrassLight.toArgb()
+        val rule = BorderLight.toArgb()
 
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ink

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -56,12 +59,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.messledger.app.R
 import com.messledger.app.data.Config
 import com.messledger.app.export.DataExportManager
 import com.messledger.app.export.DataImporter
@@ -71,6 +76,8 @@ import com.messledger.app.ui.ReceiptDialog
 import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.ui.theme.MessColors
+import com.messledger.app.ui.theme.messSurface
+import com.messledger.app.updates.UpdateManager
 import com.messledger.app.viewmodel.MessState
 import com.messledger.app.viewmodel.MessViewModel
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +85,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SettingsScreen(viewModel: MessViewModel) {
+fun SettingsScreen(viewModel: MessViewModel, updateManager: UpdateManager) {
     val state by viewModel.state.collectAsState()
     val colors = LocalMessColors.current
 
@@ -223,6 +230,8 @@ fun SettingsScreen(viewModel: MessViewModel) {
                             onAllowanceChange = { allowance = it; onSave() }
                         )
                         Spacer(modifier = Modifier.height(28.dp))
+                        AppUpdatesSection(updateManager = updateManager)
+                        Spacer(modifier = Modifier.height(28.dp))
                         AboutSection()
                     }
                 }
@@ -267,6 +276,8 @@ fun SettingsScreen(viewModel: MessViewModel) {
                         onTaxChange = { tax = it; onSave() },
                         onAllowanceChange = { allowance = it; onSave() }
                     )
+                    Spacer(modifier = Modifier.height(28.dp))
+                    AppUpdatesSection(updateManager = updateManager)
                     Spacer(modifier = Modifier.height(28.dp))
                     AboutSection()
                     Spacer(modifier = Modifier.height(24.dp))
@@ -582,6 +593,105 @@ private fun LedgerHeading(text: String, style: TextStyle) {
                         )
                     }
             )
+        }
+    }
+}
+
+/** One flat card: automatic checks, a manual refresh, and when we last looked. */
+@Composable
+private fun AppUpdatesSection(updateManager: UpdateManager) {
+    val colors = LocalMessColors.current
+    val settings by updateManager.updateSettings.collectAsState()
+    val checking by updateManager.isChecking.collectAsState()
+
+    val lastChecked = remember(settings.lastUpdateCheckAt) {
+        if (settings.lastUpdateCheckAt == 0L) {
+            "Not checked yet"
+        } else {
+            val minutes = (System.currentTimeMillis() - settings.lastUpdateCheckAt)
+                .coerceAtLeast(0L) / 60_000L
+            when {
+                minutes < 1L -> "Checked just now"
+                minutes < 60L -> "Checked $minutes min ago"
+                minutes < 1_440L -> "Checked ${minutes / 60L} h ago"
+                else -> "Checked ${minutes / 1_440L} d ago"
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        LedgerHeading(
+            text = "App updates",
+            style = MaterialTheme.typography.headlineMedium
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .messSurface()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_groove_foreground),
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Automatic checks",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Looks for a new release every six hours. No analytics or tracking.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textSecondary
+                    )
+                }
+                Switch(
+                    checked = settings.updateChecksEnabled,
+                    onCheckedChange = { updateManager.setUpdateChecksEnabled(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.tangerine,
+                        checkedTrackColor = colors.tangerine.copy(alpha = 0.35f),
+                        uncheckedThumbColor = colors.textTertiary,
+                        uncheckedTrackColor = colors.surface,
+                        uncheckedBorderColor = colors.borderStrong
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                OutlinedButton(
+                    onClick = { updateManager.checkNow() },
+                    enabled = !checking,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = colors.textPrimary
+                    ),
+                    border = BorderStroke(1.dp, colors.ruleDark)
+                ) {
+                    Text(if (checking) "Checking…" else "Check now")
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = lastChecked,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textTertiary
+                )
+            }
         }
     }
 }

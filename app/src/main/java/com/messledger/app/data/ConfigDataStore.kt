@@ -3,11 +3,14 @@ package com.messledger.app.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.messledger.app.domain.UpdateInfo
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -43,6 +46,13 @@ data class Config(
     val dayRules: Map<String, DayRule> = emptyMap()
 )
 
+/** Update-check preferences. Kept out of [Config] so saving prices cannot reset them. */
+data class UpdateSettings(
+    val updateChecksEnabled: Boolean = true,
+    val lastUpdateCheckAt: Long = 0L,
+    val dismissedUpdateVersion: String = ""
+)
+
 class ConfigDataStore(private val context: Context) {
     companion object {
         val PRICE_BREAKFAST = floatPreferencesKey("price_breakfast")
@@ -52,6 +62,11 @@ class ConfigDataStore(private val context: Context) {
         val ALLOWED_MISSES = intPreferencesKey("allowed_misses")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DAY_RULES = stringPreferencesKey("day_rules")
+        val UPDATE_CHECKS_ENABLED = booleanPreferencesKey("update_checks_enabled")
+        val LAST_UPDATE_CHECK_AT = longPreferencesKey("last_update_check_at")
+        val DISMISSED_UPDATE_VERSION = stringPreferencesKey("dismissed_update_version")
+        val LAST_NOTIFIED_VERSION = stringPreferencesKey("last_notified_version")
+        private val LAST_UPDATE_INFO = stringPreferencesKey("last_update_info")
 
         private val json = Json { ignoreUnknownKeys = true }
 
@@ -103,6 +118,60 @@ class ConfigDataStore(private val context: Context) {
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[THEME_MODE] = mode.name
+        }
+    }
+
+    val updateSettingsFlow: Flow<UpdateSettings> = context.dataStore.data
+        .map { preferences ->
+            UpdateSettings(
+                updateChecksEnabled = preferences[UPDATE_CHECKS_ENABLED] ?: true,
+                lastUpdateCheckAt = preferences[LAST_UPDATE_CHECK_AT] ?: 0L,
+                dismissedUpdateVersion = preferences[DISMISSED_UPDATE_VERSION] ?: ""
+            )
+        }
+
+    suspend fun setUpdateChecksEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[UPDATE_CHECKS_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setLastUpdateCheckAt(at: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_UPDATE_CHECK_AT] = at
+        }
+    }
+
+    suspend fun setDismissedUpdateVersion(version: String) {
+        context.dataStore.edit { preferences ->
+            preferences[DISMISSED_UPDATE_VERSION] = version
+        }
+    }
+
+    val lastNotifiedVersionFlow: Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[LAST_NOTIFIED_VERSION] ?: "" }
+
+    suspend fun setLastNotifiedVersion(version: String) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_NOTIFIED_VERSION] = version
+        }
+    }
+
+    /** Cached so a notification tap can still show the sheet when offline. */
+    val lastUpdateInfoFlow: Flow<UpdateInfo?> = context.dataStore.data
+        .map { preferences ->
+            preferences[LAST_UPDATE_INFO]?.let { raw ->
+                runCatching { json.decodeFromString<UpdateInfo>(raw) }.getOrNull()
+            }
+        }
+
+    suspend fun setLastUpdateInfo(info: UpdateInfo?) {
+        context.dataStore.edit { preferences ->
+            if (info == null) {
+                preferences.remove(LAST_UPDATE_INFO)
+            } else {
+                preferences[LAST_UPDATE_INFO] = json.encodeToString(info)
+            }
         }
     }
 }
