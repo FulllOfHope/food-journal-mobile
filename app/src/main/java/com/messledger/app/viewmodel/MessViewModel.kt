@@ -261,6 +261,14 @@ class MessViewModel(
             dao.insertMeals(records)
         }
     }
+
+    /** Restore the custom per-date rules carried in a CSV backup. */
+    fun importDayRules(rules: Map<String, DayRule>) {
+        if (rules.isEmpty()) return
+        viewModelScope.launch {
+            configDataStore.importDayRules(rules)
+        }
+    }
 }
 
 class MessViewModelFactory(

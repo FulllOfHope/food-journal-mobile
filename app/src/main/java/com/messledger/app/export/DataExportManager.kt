@@ -18,7 +18,7 @@ object DataExportManager {
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "text/csv"
-            putExtra(Intent.EXTRA_TITLE, "mess_ledger_export_${LocalDate.now()}.csv")
+            putExtra(Intent.EXTRA_TITLE, "food_journal_export_${LocalDate.now()}.csv")
         }
         launcher.launch(intent)
     }
@@ -68,6 +68,10 @@ object DataExportManager {
                         "$bGuests,$lGuests,$dGuests,$eaten,$missed,%.2f\n".format(bill)
                     )
                 }
+
+                // Per-date overrides are not meal records, so they need their
+                // own line. Old app versions ignore it as a malformed row.
+                DayRulesBackup.lineFor(config.dayRules)?.let { writer.write("$it\n") }
             }
         }
     }

@@ -99,6 +99,19 @@ class ConfigDataStore(private val context: Context) {
         }
     }
 
+    /**
+     * Restore per-date rules from a backup. Merges with existing overrides so
+     * unrelated dates already on this device are not wiped by an import.
+     */
+    suspend fun importDayRules(rules: Map<String, DayRule>) {
+        if (rules.isEmpty()) return
+        context.dataStore.edit { preferences ->
+            val merged = decodeRules(preferences[DAY_RULES]).toMutableMap()
+            merged.putAll(rules)
+            preferences[DAY_RULES] = json.encodeToString(merged)
+        }
+    }
+
     suspend fun updateConfig(config: Config) {
         context.dataStore.edit { preferences ->
             preferences[PRICE_BREAKFAST] = config.priceBreakfast
@@ -106,6 +119,8 @@ class ConfigDataStore(private val context: Context) {
             preferences[PRICE_DINNER] = config.priceDinner
             preferences[TAX_PERCENT] = config.taxPercent
             preferences[ALLOWED_MISSES] = config.allowedMisses
+            // DAY_RULES is intentionally not written here: saving prices must
+            // not erase per-date overrides. importDayRules handles those.
         }
     }
 

@@ -113,6 +113,7 @@ fun SettingsScreen(viewModel: MessViewModel, updateManager: UpdateManager) {
                     Toast.makeText(context, result.error, Toast.LENGTH_LONG).show()
                 } else {
                     viewModel.importMeals(result.records)
+                    viewModel.importDayRules(result.dayRules)
                     Toast.makeText(
                         context,
                         "Imported ${result.days} days (${result.records.size} meals)",

@@ -1,5 +1,6 @@
 package com.messledger.app.export
 
+import com.messledger.app.data.DayRule
 import com.messledger.app.data.MealRecord
 import com.messledger.app.data.MealType
 import java.time.LocalDate
@@ -26,12 +27,18 @@ object DataImporter {
         val records: List<MealRecord>,
         val days: Int,
         val skippedRows: Int,
-        val error: String? = null
+        val error: String? = null,
+        /** Custom per-date rules carried by newer exports; empty for old CSVs. */
+        val dayRules: Map<String, DayRule> = emptyMap()
     )
 
     fun parseCsv(text: String, now: Long = System.currentTimeMillis()): Result {
+        val dayRules = mutableMapOf<String, DayRule>()
         val lines = text.removePrefix("\uFEFF").lineSequence()
             .filter { it.isNotBlank() }
+            .filterNot { line ->
+                DayRulesBackup.fromLine(line)?.let { dayRules.putAll(it); true } ?: false
+            }
             .toList()
 
         if (lines.isEmpty()) {
@@ -112,14 +119,14 @@ object DataImporter {
             if (found) dates += date.toString() else skippedRows++
         }
 
-        if (records.isEmpty()) {
+        if (records.isEmpty() && dayRules.isEmpty()) {
             return Result(
                 emptyList(), 0, skippedRows,
                 "No meal entries could be read from that file."
             )
         }
 
-        return Result(records, dates.size, skippedRows)
+        return Result(records, dates.size, skippedRows, dayRules = dayRules.toMap())
     }
 
     /** True = eaten, false = skipped, null = leave the default alone. */

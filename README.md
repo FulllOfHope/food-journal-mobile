@@ -68,12 +68,15 @@ If you do uninstall — or move to a new phone — take a backup first:
 3. **Settings → Import CSV** and pick that file.
 
 Import merges. A date and meal that already exists is replaced by the
-file; everything else is left alone. The older export only contains the
-cycle that was on screen when you pressed export, so export from a
-current build when you can.
+file; everything else is left alone. Custom per-date day rules are
+restored too — they travel in a tagged line at the end of the CSV, and
+merge with any rules already on the device. The older export only
+contains the cycle that was on screen when you pressed export, so export
+from a current build when you can.
 
 The CSV is plain text. Desktop exports (lower-case headers,
-`True`/`False` cells) import too.
+`True`/`False` cells) import too, as do exports from before day rules
+were included.
 
 ---
 

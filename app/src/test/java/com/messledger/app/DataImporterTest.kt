@@ -1,7 +1,9 @@
 package com.messledger.app
 
+import com.messledger.app.data.DayRule
 import com.messledger.app.data.MealType
 import com.messledger.app.export.DataImporter
+import com.messledger.app.export.DayRulesBackup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -149,5 +151,67 @@ class DataImporterTest {
                 it.date == "2026-10-14" && it.mealType == MealType.LUNCH
             }.guestCount
         )
+    }
+
+    @Test
+    fun restoresCustomDayRulesCarriedInTheExport() {
+        val rules = mapOf(
+            "2026-10-17" to DayRule(breakfast = true, lunchPortions = 2, dinner = false),
+            "2026-11-01" to DayRule(breakfast = false, lunchPortions = 0, dinner = true)
+        )
+        val csv = """
+            Date,Breakfast,Lunch,Dinner
+            2026-10-14,Eaten,Eaten,Missed
+            ${DayRulesBackup.lineFor(rules)}
+        """.trimIndent()
+
+        val result = DataImporter.parseCsv(csv)
+
+        assertNull(result.error)
+        assertEquals(1, result.days)
+        assertEquals(rules, result.dayRules)
+    }
+
+    @Test
+    fun oldExportsWithoutDayRulesStillImport() {
+        val csv = """
+            Date,Breakfast,Lunch,Dinner
+            2026-10-14,Eaten,Eaten,Missed
+        """.trimIndent()
+
+        val result = DataImporter.parseCsv(csv)
+
+        assertNull(result.error)
+        assertEquals(true, result.dayRules.isEmpty())
+    }
+
+    @Test
+    fun corruptDayRuleTagDoesNotFailTheImport() {
+        val csv = """
+            Date,Breakfast,Lunch,Dinner
+            2026-10-14,Eaten,Eaten,Missed
+            ${DayRulesBackup.PREFIX}not-json
+        """.trimIndent()
+
+        val result = DataImporter.parseCsv(csv)
+
+        assertNull(result.error)
+        assertEquals(1, result.days)
+        assertEquals(true, result.dayRules.isEmpty())
+    }
+
+    @Test
+    fun dayRulesAreEncodedAndDecodedWithoutLoss() {
+        val rules = mapOf(
+            "2026-10-18" to DayRule(breakfast = false, lunchPortions = 2, dinner = false),
+            "2026-12-25" to DayRule(breakfast = true, lunchPortions = 0, dinner = true)
+        )
+
+        val line = DayRulesBackup.lineFor(rules)
+
+        assertNotNull(line)
+        assertEquals(true, line!!.startsWith(DayRulesBackup.PREFIX))
+        assertEquals(rules, DayRulesBackup.fromLine(line))
+        assertEquals(true, DayRulesBackup.lineFor(emptyMap()) == null)
     }
 }
