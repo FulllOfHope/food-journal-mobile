@@ -45,8 +45,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -548,41 +546,17 @@ private fun BillingSection(
     }
 }
 
-/** Serif heading with a double hairline rule on the night ledger. */
+/** Serif heading — identical in both themes; only colours differ at night. */
 @Composable
 private fun LedgerHeading(text: String, style: TextStyle) {
     val colors = LocalMessColors.current
-    val isDark = LocalIsNight.current
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = text,
-            style = style,
-            color = colors.textPrimary
-        )
-        if (isDark) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .drawBehind {
-                        drawLine(
-                            color = colors.ruleDark,
-                            start = Offset(0f, 0f),
-                            end = Offset(size.width, 0f),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                        drawLine(
-                            color = colors.rule.copy(alpha = 0.7f),
-                            start = Offset(0f, 2.dp.toPx()),
-                            end = Offset(size.width, 2.dp.toPx()),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    }
-            )
-        }
-    }
+    Text(
+        text = text,
+        style = style,
+        color = colors.textPrimary,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 /**
@@ -645,7 +619,7 @@ private fun AboutSection() {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Built by FullOfHope — github.com/FulllOfHope",
+                    text = "Built by Niraj Hariyani (@FulllOfHope)",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.tangerine,
                     modifier = Modifier.clickable {

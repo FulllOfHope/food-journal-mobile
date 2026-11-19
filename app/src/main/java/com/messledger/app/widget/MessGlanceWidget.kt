@@ -65,11 +65,11 @@ private data class WidgetPalette(
 
 private fun paletteFor(isDark: Boolean): WidgetPalette = if (isDark) {
     WidgetPalette(
-        background = Color(0xFF000000),
-        card = Color(0xFF0E0B09),
-        text = Color(0xFFF7F1E8),
-        secondary = Color(0xFFD8CFC4),
-        tertiary = Color(0xFF9C9185),
+        background = Color(0xFF121212),
+        card = Color(0xFF1E1E1E),
+        text = Color(0xFFF5F3EF),
+        secondary = Color(0xFFCCC7BF),
+        tertiary = Color(0xFF9E9890),
         eaten = Color(0xFF93B56D),
         skipped = Color(0xFFFF7043),
         gold = Color(0xFFEFA963)

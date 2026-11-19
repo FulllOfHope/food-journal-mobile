@@ -27,8 +27,9 @@ import org.junit.Test
 import kotlin.math.pow
 
 /**
- * Pins the restored paper journal by day and the near-black, orange-inked
- * ledger by night. These assertions stop either palette from drifting back.
+ * Pins the restored paper journal by day and the neutral greyish-black,
+ * orange-inked ledger by night. These assertions stop either palette from
+ * drifting back.
  */
 class ThemeTokenTest {
 
@@ -65,10 +66,10 @@ class ThemeTokenTest {
     }
 
     @Test
-    fun nightPaletteIsBlackAndOrange() {
-        assertEquals(Color(0xFF000000), VoidColor)
-        assertEquals(Color(0xFF0E0B09), CardDark)
-        assertEquals(Color(0xFFF7F1E8), TextLight)
+    fun nightPaletteIsGreyishBlackAndOrange() {
+        assertEquals(Color(0xFF121212), VoidColor)
+        assertEquals(Color(0xFF1E1E1E), CardDark)
+        assertEquals(Color(0xFFF5F3EF), TextLight)
         assertEquals(Color(0xFFFF7043), Ember)
         assertEquals(Color(0xFF93B56D), Sage)
         assertEquals(Color(0xFFA8C080), NightLeaf)
@@ -84,11 +85,12 @@ class ThemeTokenTest {
     }
 
     @Test
-    fun nightCanvasIsGenuinelyBlackAgain() {
-        assertEquals(Color(0xFF000000), PageDark)
-        assertEquals(Color(0xFF000000), PageAmoled)
+    fun nightCanvasIsGreyishBlackNotPureBlack() {
+        assertEquals(Color(0xFF121212), PageDark)
+        assertEquals(Color(0xFF0D0D0D), PageAmoled)
         assertEquals(PageDark, DarkMessColors.background)
-        assertEquals(PageDark, AmoledMessColors.background)
+        assertEquals(PageAmoled, AmoledMessColors.background)
+        assertTrue("night canvas is greyish, not pure black", luminance(PageDark) > 0.0)
     }
 
     @Test

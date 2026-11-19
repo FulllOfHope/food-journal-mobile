@@ -259,24 +259,6 @@ private fun LedgerTopBar(
             .fillMaxWidth()
             .background(if (isDark) Color.Transparent else colors.background)
             .statusBarsPadding()
-            .drawBehind {
-                if (isDark) {
-                    // A double hairline, like the ruled edge of a ledger page.
-                    val bottom = size.height - 3.dp.toPx()
-                    drawLine(
-                        color = colors.ruleDark,
-                        start = Offset(0f, bottom),
-                        end = Offset(size.width, bottom),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    drawLine(
-                        color = colors.rule.copy(alpha = 0.75f),
-                        start = Offset(0f, bottom + 2.dp.toPx()),
-                        end = Offset(size.width, bottom + 2.dp.toPx()),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
-            }
     ) {
         Row(
             modifier = Modifier
