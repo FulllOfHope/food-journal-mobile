@@ -73,7 +73,7 @@ fun UpdateSheet(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_groove_foreground),
+                painter = painterResource(R.drawable.ic_food_foreground),
                 contentDescription = null,
                 tint = Color.Unspecified,
                 modifier = Modifier.size(48.dp)

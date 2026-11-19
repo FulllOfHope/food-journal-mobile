@@ -6,9 +6,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.messledger.app.theme.messLedgerBackground
+import com.messledger.app.theme.messLedgerBorder
 import com.messledger.app.ui.theme.LocalMessColors
-import com.messledger.app.ui.theme.messLedgerBackground
-import com.messledger.app.ui.theme.messLedgerBorder
 import java.time.LocalDate
 
 @Composable
@@ -28,8 +28,8 @@ fun DaySummaryBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 16.dp)
-            .messLedgerBackground()
             .messLedgerBorder(isActive = false)
+            .messLedgerBackground()
             .padding(16.dp)
     ) {
         Text(

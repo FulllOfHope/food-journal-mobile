@@ -1,12 +1,17 @@
 package com.messledger.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,14 +28,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,34 +48,38 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.messledger.app.data.MealType
 import com.messledger.app.domain.BillingEngine
-import com.messledger.app.ui.AllowanceVisualizer
 import com.messledger.app.ui.MealCard
+import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
-import com.messledger.app.ui.theme.rememberMotionDuration
-import com.messledger.app.ui.theme.tabularNumbers
 import com.messledger.app.viewmodel.MessState
 import com.messledger.app.viewmodel.MessViewModel
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 
-private val longDateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM")
-
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun TodayScreen(viewModel: MessViewModel) {
     val state by viewModel.state.collectAsState()
+    val isDark = LocalIsNight.current
     val density = LocalDensity.current
     val swipeThreshold = with(density) { 64.dp.toPx() }
 
@@ -113,6 +122,8 @@ fun TodayScreen(viewModel: MessViewModel) {
                 )
             }
     ) {
+        // Tablets and landscape phones get the day in two columns: the page
+        // mark on the left, the three meal rows on the right.
         val twoPane = maxWidth >= 720.dp || (maxWidth >= 600.dp && maxWidth > maxHeight)
         val narrow = maxWidth < 360.dp
         val visualHeight = when {
@@ -122,7 +133,10 @@ fun TodayScreen(viewModel: MessViewModel) {
         }
 
         if (twoPane) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 Row(
                     modifier = Modifier
                         .widthIn(max = 1180.dp)
@@ -143,9 +157,10 @@ fun TodayScreen(viewModel: MessViewModel) {
                             onNext = { viewModel.setSelectedDate(state.selectedDate.plusDays(1)) }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        TangerineTree(state = state, height = visualHeight)
+                        DayVisual(state = state, isDark = isDark, height = visualHeight)
                         Spacer(modifier = Modifier.height(12.dp))
                         DailySubtotal(state = state)
+                        LedgerMasterBadge(state = state)
                         Spacer(modifier = Modifier.height(16.dp))
                         DaySummaryNote(state = state)
                     }
@@ -164,7 +179,10 @@ fun TodayScreen(viewModel: MessViewModel) {
                 }
             }
         } else {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 Column(
                     modifier = Modifier
                         .widthIn(max = 560.dp)
@@ -179,9 +197,10 @@ fun TodayScreen(viewModel: MessViewModel) {
                         onNext = { viewModel.setSelectedDate(state.selectedDate.plusDays(1)) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    TangerineTree(state = state, height = visualHeight)
+                    DayVisual(state = state, isDark = isDark, height = visualHeight)
                     Spacer(modifier = Modifier.height(12.dp))
                     DailySubtotal(state = state)
+                    LedgerMasterBadge(state = state)
                     Spacer(modifier = Modifier.height(16.dp))
                     MealRows(state = state, viewModel = viewModel, activeMeal = activeMeal)
                     Spacer(modifier = Modifier.height(20.dp))
@@ -201,7 +220,6 @@ private fun DateNavigator(
     onNext: () -> Unit
 ) {
     val colors = LocalMessColors.current
-    val duration = rememberMotionDuration(120)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -215,37 +233,27 @@ private fun DateNavigator(
             Text(if (narrow) "◀" else "◀ Prev", color = colors.textPrimary)
         }
 
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        androidx.compose.animation.AnimatedContent(
+            targetState = date,
+            transitionSpec = {
+                if (targetState > initialState) {
+                    (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
+                        slideOutHorizontally { width -> -width } + fadeOut()
+                    )
+                } else {
+                    (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
+                        slideOutHorizontally { width -> width } + fadeOut()
+                    )
+                }.using(SizeTransform(clip = false))
+            },
+            label = "date_anim"
+        ) { targetDate ->
             Text(
-                text = if (date == LocalDate.now()) "TODAY" else "SELECTED DAY",
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.tangerine,
-                textAlign = TextAlign.Center,
+                text = targetDate.toString(),
+                style = if (narrow) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1
             )
-            AnimatedContent(
-                targetState = date,
-                transitionSpec = {
-                    fadeIn(androidx.compose.animation.core.tween(duration)) togetherWith
-                        fadeOut(androidx.compose.animation.core.tween(duration))
-                },
-                label = "date_crossfade"
-            ) { targetDate ->
-                Text(
-                    text = targetDate.format(longDateFormatter),
-                    style = if (narrow) {
-                        MaterialTheme.typography.titleMedium
-                    } else {
-                        MaterialTheme.typography.titleLarge
-                    }.tabularNumbers(),
-                    color = colors.textPrimary,
-                    maxLines = 1,
-                    textAlign = TextAlign.Center
-                )
-            }
         }
 
         TextButton(
@@ -260,50 +268,46 @@ private fun DateNavigator(
 @Composable
 private fun DailySubtotal(state: MessState) {
     val colors = LocalMessColors.current
-    var expanded by remember { mutableStateOf(false) }
-    val duration = rememberMotionDuration(120)
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Daily subtotal  ·  allowance",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.textSecondary
-                )
-                Spacer(modifier = Modifier.size(4.dp))
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = if (expanded) "Hide allowance" else "Show allowance",
-                    tint = colors.textTertiary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Text(
-                text = "₹%.2f".format(state.dailyLiability),
-                style = MaterialTheme.typography.titleMedium.tabularNumbers(),
-                color = colors.textPrimary
-            )
-        }
+    Text(
+        text = "Daily Subtotal: ₹%.2f".format(state.dailyLiability),
+        style = MaterialTheme.typography.titleMedium,
+        color = colors.textPrimary,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
 
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn(androidx.compose.animation.core.tween(duration)),
-            exit = fadeOut(androidx.compose.animation.core.tween(duration))
-        ) {
-            AllowanceVisualizer(
-                allowanceTotal = state.config.allowedMisses,
-                consumed = state.cycleSkippedCount,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+@Composable
+private fun LedgerMasterBadge(state: MessState) {
+    val allowed = state.config.allowedMisses
+    if (allowed <= 0 || state.cycleSkippedCount < allowed) return
+
+    val colors = LocalMessColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .background(colors.brass.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+            .border(1.dp, colors.brass.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Star,
+            contentDescription = null,
+            tint = colors.brass,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.size(8.dp))
+        Text(
+            text = if (state.cycleSkippedCount > allowed) {
+                "Allowance fully used — every extra skip is billed."
+            } else {
+                "Ledger Master — all $allowed rebates used."
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.textPrimary
+        )
     }
 }
 
@@ -323,7 +327,6 @@ private fun MealRows(
         status = breakfastRecord?.status ?: true,
         previousStatus = breakfastRecord?.previousStatus,
         guestCount = breakfastRecord?.guestCount ?: 0,
-        recorded = breakfastRecord != null,
         isActive = isServingNow && activeMeal == MealType.BREAKFAST,
         onClick = { viewModel.toggleMeal(MealType.BREAKFAST) },
         onGuestChange = { viewModel.changeGuestCount(MealType.BREAKFAST, it) }
@@ -336,7 +339,6 @@ private fun MealRows(
         status = lunchRecord?.status ?: true,
         previousStatus = lunchRecord?.previousStatus,
         guestCount = lunchRecord?.guestCount ?: 0,
-        recorded = lunchRecord != null,
         isActive = isServingNow && activeMeal == MealType.LUNCH,
         feast = rule.lunchPortions >= 2,
         onClick = { viewModel.toggleMeal(MealType.LUNCH) },
@@ -350,7 +352,6 @@ private fun MealRows(
         status = dinnerRecord?.status ?: true,
         previousStatus = dinnerRecord?.previousStatus,
         guestCount = dinnerRecord?.guestCount ?: 0,
-        recorded = dinnerRecord != null,
         isActive = isServingNow && rule.dinner && activeMeal == MealType.DINNER,
         onClick = { if (rule.dinner) viewModel.toggleMeal(MealType.DINNER) },
         onGuestChange = if (rule.dinner) {
@@ -365,30 +366,36 @@ private fun ActionButtons(viewModel: MessViewModel) {
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Button(
+        OutlinedButton(
+            onClick = { viewModel.setAllMealsStatus(false) },
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = colors.accentRed
+            ),
+            border = BorderStroke(1.dp, colors.ruleDark)
+        ) {
+            Text("Clear All", maxLines = 1)
+        }
+        OutlinedButton(
             onClick = { viewModel.setAllMealsStatus(true) },
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.tangerine,
-                contentColor = colors.onTangerine
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = colors.textPrimary
             ),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+            border = BorderStroke(1.dp, colors.ruleDark)
         ) {
             Text("Mark All Eaten", maxLines = 1)
-        }
-        TextButton(
-            onClick = { viewModel.setAllMealsStatus(false) },
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
-        ) {
-            Text("Clear All", color = colors.textSecondary, maxLines = 1)
         }
     }
 }
 
-/** A quiet footnote only shown when there is room for it. */
+/** A small ledger footnote only shown when there is room for it. */
 @Composable
 private fun DaySummaryNote(state: MessState) {
     val colors = LocalMessColors.current
@@ -422,91 +429,281 @@ private fun DaySummaryNote(state: MessState) {
     }
 }
 
-/**
- * ONE botanical page mark, shared by light and night. Only the token values
- * change. Skipped fruit is a hollow ring; nothing glows or pulses.
- */
 @Composable
-fun TangerineTree(state: MessState, height: Dp, modifier: Modifier = Modifier) {
+private fun DayVisual(state: MessState, isDark: Boolean, height: Dp) {
     val colors = LocalMessColors.current
-    val rule = BillingEngine.ruleFor(state.selectedDate, state.config)
-
-    val dailyMeals = buildList {
-        if (rule.breakfast) add(state.mealsForDate[MealType.BREAKFAST]?.status ?: true)
-        if (rule.lunchPortions > 0) add(state.mealsForDate[MealType.LUNCH]?.status ?: true)
-        if (rule.dinner) add(state.mealsForDate[MealType.DINNER]?.status ?: true)
-        if (isEmpty()) add(true)
-    }
+    val selectedDate = state.selectedDate
+    val rule = BillingEngine.ruleFor(selectedDate, state.config)
 
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .height(height),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val scale = size.height / 180.dp.toPx()
+            val center = Offset(size.width / 2, size.height / 2)
 
-            val trunkTop = 80f * scale
-            val trunkBottom = size.height - 80f * scale
-            val trunkX = center.x
+            if (isDark) {
+                // ----------------------------------------------------
+                // THE NIGHT LEDGER (a quiet 25-bead cycle dial)
+                // ----------------------------------------------------
+                val outerRadius = min(size.width, size.height) / 2f * 0.86f
+                val innerRadius = outerRadius * 0.76f
+                val hairline = 1.dp.toPx()
+                val beadRadius = 3.dp.toPx()
+                val tickInset = 5.dp.toPx()
 
-            val bark = colors.bark
-            val leaf = colors.leaf
-            val tangerine = colors.tangerine
-
-            val trunkPath = Path().apply {
-                moveTo(trunkX, trunkBottom)
-                quadraticBezierTo(
-                    x1 = trunkX - 12f * scale,
-                    y1 = size.height / 2f,
-                    x2 = trunkX,
-                    y2 = trunkTop
+                drawCircle(
+                    color = colors.ruleDark,
+                    radius = outerRadius,
+                    center = center,
+                    style = Stroke(width = hairline)
                 )
-            }
-            drawPath(
-                path = trunkPath,
-                color = bark,
-                style = Stroke(width = 8f * scale, cap = StrokeCap.Round)
-            )
-
-            val spacing = (trunkBottom - trunkTop - 60f * scale) / 5f
-
-            dailyMeals.forEachIndexed { index, isEaten ->
-                val isLeft = index % 2 == 0
-                val xDir = if (isLeft) -1f else 1f
-                val fruitY = trunkTop + 30f * scale + index * spacing
-                val fruitX = trunkX + xDir * 45f * scale
-                val bend = if (fruitY > size.height * 0.3f && fruitY < size.height * 0.7f) {
-                    -6f * scale
-                } else 0f
-
-                drawLine(
-                    color = bark,
-                    start = Offset(trunkX + bend, fruitY - 5f * scale),
-                    end = Offset(fruitX, fruitY - 18f * scale),
-                    strokeWidth = 3.5f * scale,
-                    cap = StrokeCap.Round
+                drawCircle(
+                    color = colors.rule.copy(alpha = 0.85f),
+                    radius = innerRadius,
+                    center = center,
+                    style = Stroke(width = hairline)
                 )
 
-                val radius = 35f * scale
-                if (isEaten) {
-                    drawCircle(color = tangerine, radius = radius, center = Offset(fruitX, fruitY))
-                } else {
-                    drawCircle(
-                        color = tangerine,
-                        radius = radius,
-                        center = Offset(fruitX, fruitY),
-                        style = Stroke(width = 3.dp.toPx())
-                    )
+                val missedMeals = state.cycleSkippedCount.toInt()
+                for (i in 0 until 25) {
+                    val angle = (i.toFloat() / 25f) * 2f * PI - PI / 2f
+                    val cosA = cos(angle).toFloat()
+                    val sinA = sin(angle).toFloat()
+
+                    if (i < missedMeals) {
+                        // A copper bead for each rebate spent.
+                        val beadCenter = Offset(
+                            center.x + outerRadius * cosA,
+                            center.y + outerRadius * sinA
+                        )
+                        drawCircle(
+                            color = colors.accentRed.copy(alpha = 0.16f),
+                            radius = beadRadius * 2f,
+                            center = beadCenter
+                        )
+                        drawCircle(
+                            color = colors.accentRed,
+                            radius = beadRadius,
+                            center = beadCenter
+                        )
+                    } else {
+                        // Plain hairline ticks for the untouched allowance.
+                        drawLine(
+                            color = colors.rule.copy(alpha = 0.75f),
+                            start = Offset(
+                                center.x + (outerRadius - tickInset) * cosA,
+                                center.y + (outerRadius - tickInset) * sinA
+                            ),
+                            end = Offset(
+                                center.x + (outerRadius + 2.dp.toPx()) * cosA,
+                                center.y + (outerRadius + 2.dp.toPx()) * sinA
+                            ),
+                            strokeWidth = hairline,
+                            cap = StrokeCap.Round
+                        )
+                    }
                 }
 
-                drawOval(
-                    color = leaf,
-                    topLeft = Offset(fruitX - 10f * scale, fruitY - 28f * scale),
-                    size = Size(18f * scale, 12f * scale)
+                // The noon mark, so the dial has an orientation.
+                drawLine(
+                    color = colors.brass.copy(alpha = 0.85f),
+                    start = Offset(center.x, center.y - outerRadius),
+                    end = Offset(center.x, center.y - innerRadius),
+                    strokeWidth = hairline * 1.5f,
+                    cap = StrokeCap.Round
                 )
+                drawCircle(
+                    color = colors.brass,
+                    radius = 1.8.dp.toPx(),
+                    center = Offset(center.x, center.y - innerRadius)
+                )
+
+                // The moon reports the day rather than decorating it:
+                // new moon at none, crescent at one, gibbous at two, full at all.
+                val meals = buildList {
+                    if (rule.breakfast) add(MealType.BREAKFAST)
+                    if (rule.lunchPortions > 0) add(MealType.LUNCH)
+                    if (rule.dinner) add(MealType.DINNER)
+                }
+                val eatenCount = meals.count { state.mealsForDate[it]?.status ?: true }
+                val fullDay = meals.isNotEmpty() && eatenCount == meals.size
+
+                val moonRadius = outerRadius * 0.30f
+                val moonCenter = Offset(
+                    center.x - moonRadius * 0.08f,
+                    center.y + moonRadius * 0.02f
+                )
+
+                if (eatenCount == 0) {
+                    // New moon: the page is unmarked.
+                    drawCircle(
+                        color = colors.textPrimary.copy(alpha = 0.55f),
+                        radius = moonRadius,
+                        center = moonCenter,
+                        style = Stroke(width = hairline)
+                    )
+                } else if (!fullDay) {
+                    val shadowDistance = when {
+                        eatenCount == 1 -> 0.55f
+                        meals.size == 2 -> 2.2f
+                        else -> 1.25f
+                    }
+
+                    // Cut the crescent out of the lit disc instead of painting
+                    // an opaque shadow, so the lamp wash below stays visible.
+                    val lit = Path().apply {
+                        addOval(
+                            Rect(
+                                left = moonCenter.x - moonRadius,
+                                top = moonCenter.y - moonRadius,
+                                right = moonCenter.x + moonRadius,
+                                bottom = moonCenter.y + moonRadius
+                            )
+                        )
+                    }
+                    val shadowCenter = Offset(
+                        moonCenter.x + moonRadius * shadowDistance,
+                        moonCenter.y - moonRadius * 0.18f
+                    )
+                    val shadowRadius = moonRadius * 0.93f
+                    val shadow = Path().apply {
+                        addOval(
+                            Rect(
+                                left = shadowCenter.x - shadowRadius,
+                                top = shadowCenter.y - shadowRadius,
+                                right = shadowCenter.x + shadowRadius,
+                                bottom = shadowCenter.y + shadowRadius
+                            )
+                        )
+                    }
+                    val moon = Path().apply {
+                        op(lit, shadow, PathOperation.Difference)
+                    }
+                    drawPath(path = moon, color = colors.textPrimary)
+                } else {
+                    drawCircle(color = colors.textPrimary, radius = moonRadius, center = moonCenter)
+                }
+
+                if (fullDay) {
+                    // A perfect day earns the only star in the book.
+                    val starCenter = Offset(
+                        center.x + outerRadius * 0.36f,
+                        center.y - outerRadius * 0.30f
+                    )
+                    val starArm = 4.5.dp.toPx()
+                    drawLine(
+                        color = colors.brass,
+                        start = Offset(starCenter.x - starArm, starCenter.y),
+                        end = Offset(starCenter.x + starArm, starCenter.y),
+                        strokeWidth = hairline,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = colors.brass,
+                        start = Offset(starCenter.x, starCenter.y - starArm),
+                        end = Offset(starCenter.x, starCenter.y + starArm),
+                        strokeWidth = hairline,
+                        cap = StrokeCap.Round
+                    )
+                }
+            } else {
+                // ----------------------------------------------------
+                // SUNLIT SCRAPBOOK (The Daily 3-Tangerine Stick)
+                // ----------------------------------------------------
+                // Scale from the original 180dp canvas so the drawing keeps
+                // its proportions on small phones, tablets and in landscape.
+                val scale = size.height / 180.dp.toPx()
+
+                val trunkTop = 80f * scale
+                val trunkBottom = size.height - 80f * scale
+                val trunkX = center.x
+
+                val barkColor = Color(0xFF4A3B32)
+                val leafColor = Color(0xFF5A7A2A)
+                val tangerineColor = Color(0xFFD97020)
+
+                // 1. Draw the Single Elegant Stem
+                val trunkPath = Path().apply {
+                    moveTo(trunkX, trunkBottom)
+                    quadraticBezierTo(
+                        x1 = trunkX - 12f * scale,
+                        y1 = size.height / 2f,
+                        x2 = trunkX,
+                        y2 = trunkTop
+                    )
+                }
+                drawPath(
+                    path = trunkPath,
+                    color = barkColor,
+                    style = Stroke(width = 8f * scale, cap = StrokeCap.Round)
+                )
+
+                // 2. Evaluate Today's Meals
+                val dailyMeals = buildList {
+                    if (rule.breakfast) add(state.mealsForDate[MealType.BREAKFAST]?.status ?: true)
+                    if (rule.lunchPortions > 0) add(state.mealsForDate[MealType.LUNCH]?.status ?: true)
+                    if (rule.dinner) add(state.mealsForDate[MealType.DINNER]?.status ?: true)
+                }
+
+                // 3. Draw the 3 Daily Fruits
+                val spacing = (trunkBottom - trunkTop - 60f * scale) / 5f
+
+                dailyMeals.forEachIndexed { index, isEaten ->
+                    val isLeft = index % 2 == 0
+                    val xDir = if (isLeft) -1f else 1f
+
+                    if (isEaten) {
+                        // HANGING FRUIT
+                        val fruitY = trunkTop + 30f * scale + (index * spacing)
+                        val fruitX = trunkX + (xDir * 45f * scale)
+
+                        val bendFactor = if (fruitY > size.height * 0.3f && fruitY < size.height * 0.7f) {
+                            -6f * scale
+                        } else {
+                            0f
+                        }
+                        val attachX = trunkX + bendFactor
+
+                        drawLine(
+                            color = barkColor,
+                            start = Offset(attachX, fruitY - 5f * scale),
+                            end = Offset(fruitX, fruitY - 18f * scale),
+                            strokeWidth = 3.5f * scale,
+                            cap = StrokeCap.Round
+                        )
+
+                        drawCircle(
+                            color = tangerineColor,
+                            radius = 35f * scale,
+                            center = Offset(fruitX, fruitY)
+                        )
+
+                        drawOval(
+                            color = leafColor,
+                            topLeft = Offset(fruitX - 10f * scale, fruitY - 28f * scale),
+                            size = Size(18f * scale, 12f * scale)
+                        )
+                    } else {
+                        // FALLEN FRUIT (Spread out on the ground)
+                        val dropX = trunkX + (xDir * (40f * scale + index * 25f * scale))
+                        val dropY = trunkBottom - 5f * scale + (if (isLeft) 6f * scale else -4f * scale)
+
+                        drawCircle(
+                            color = tangerineColor,
+                            radius = 35f * scale,
+                            center = Offset(dropX, dropY)
+                        )
+
+                        drawOval(
+                            color = leafColor,
+                            topLeft = Offset(dropX - 14f * scale, dropY - 22f * scale),
+                            size = Size(14f * scale, 10f * scale)
+                        )
+                    }
+                }
             }
         }
     }

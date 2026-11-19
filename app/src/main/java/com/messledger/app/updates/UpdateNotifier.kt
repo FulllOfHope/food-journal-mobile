@@ -86,7 +86,7 @@ class UpdateNotifier(private val context: Context) {
 
         val message = "Version ${update.versionName} is ready to install"
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_groove)
+            .setSmallIcon(R.drawable.ic_stat_food)
             .setContentTitle("Food Journal update available")
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))

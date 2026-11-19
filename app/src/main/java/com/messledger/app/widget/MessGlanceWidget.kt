@@ -41,22 +41,6 @@ import com.messledger.app.data.MealType
 import com.messledger.app.data.MessLedgerDatabase
 import com.messledger.app.data.ThemeMode
 import com.messledger.app.domain.BillingEngine
-import com.messledger.app.ui.theme.BrassDark
-import com.messledger.app.ui.theme.BrassLight
-import com.messledger.app.ui.theme.PageDark
-import com.messledger.app.ui.theme.PageLight
-import com.messledger.app.ui.theme.SurfaceDark
-import com.messledger.app.ui.theme.SurfaceLight
-import com.messledger.app.ui.theme.SuccessDark
-import com.messledger.app.ui.theme.SuccessLight
-import com.messledger.app.ui.theme.TextPrimaryDark
-import com.messledger.app.ui.theme.TextPrimaryLight
-import com.messledger.app.ui.theme.TextSecondaryDark
-import com.messledger.app.ui.theme.TextSecondaryLight
-import com.messledger.app.ui.theme.TextTertiaryDark
-import com.messledger.app.ui.theme.TextTertiaryLight
-import com.messledger.app.ui.theme.WarningDark
-import com.messledger.app.ui.theme.WarningLight
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.first
@@ -69,7 +53,6 @@ private fun fixedColor(color: Color): ColorProvider = object : ColorProvider {
 
 /** One resolved set of widget colours, so the widget matches the app. */
 private data class WidgetPalette(
-    val isDark: Boolean,
     val background: Color,
     val card: Color,
     val text: Color,
@@ -80,30 +63,27 @@ private data class WidgetPalette(
     val gold: Color
 )
 
-/** The widget reads the canonical tokens; no separate palette is maintained. */
 private fun paletteFor(isDark: Boolean): WidgetPalette = if (isDark) {
     WidgetPalette(
-        isDark = true,
-        background = PageDark,
-        card = SurfaceDark,
-        text = TextPrimaryDark,
-        secondary = TextSecondaryDark,
-        tertiary = TextTertiaryDark,
-        eaten = SuccessDark,
-        skipped = WarningDark,
-        gold = BrassDark
+        background = Color(0xFF000000),
+        card = Color(0xFF1E1A16),
+        text = Color(0xFFEDE6D8),
+        secondary = Color(0xFFC3B9A7),
+        tertiary = Color(0xFF8A8070),
+        eaten = Color(0xFF7E8F63),
+        skipped = Color(0xFFD08A6B),
+        gold = Color(0xFFC8A46B)
     )
 } else {
     WidgetPalette(
-        isDark = false,
-        background = PageLight,
-        card = SurfaceLight,
-        text = TextPrimaryLight,
-        secondary = TextSecondaryLight,
-        tertiary = TextTertiaryLight,
-        eaten = SuccessLight,
-        skipped = WarningLight,
-        gold = BrassLight
+        background = Color(0xFFF4F1EA),
+        card = Color(0xFFFAF8F2),
+        text = Color(0xFF212121),
+        secondary = Color(0xFF4A4843),
+        tertiary = Color(0xFF8A867E),
+        eaten = Color(0xFF5A7A2A),
+        skipped = Color(0xFFB3402E),
+        gold = Color(0xFF8A6A2F)
     )
 }
 
@@ -333,9 +313,11 @@ private fun MealToggle(
     modifier: GlanceModifier = GlanceModifier
 ) {
     val tint = if (eaten) palette.eaten else palette.skipped
-    val background = (if (eaten) palette.eaten else palette.skipped).copy(
-        alpha = if (palette.isDark) 0.16f else 0.12f
-    )
+    val background = if (eaten) {
+        if (palette.background.luminance() > 0.5f) Color(0xFFDDEBD2) else Color(0xFF2A251B)
+    } else {
+        if (palette.background.luminance() > 0.5f) Color(0xFFF3DFD9) else Color(0xFF2A1D14)
+    }
 
     Box(
         modifier = modifier
@@ -461,3 +443,6 @@ private fun skippedUnits(
 
 private fun formatUnits(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+
+private fun Color.luminance(): Float =
+    0.2126f * red + 0.7152f * green + 0.0722f * blue

@@ -16,9 +16,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 /**
- * Every semantic colour a component needs. The short legacy names are kept as
- * read-only aliases so older call sites keep compiling, but new code should use
- * the semantic roles (border, tangerine, warning, …).
+ * Semantic colours for the journal. The short legacy names stay as read-only
+ * aliases, and the role names added for the newer dialogs/calendar remain, but
+ * every value comes from the v1.5.1 paper/ink palette.
  */
 @Immutable
 data class MessColors(
@@ -36,7 +36,8 @@ data class MessColors(
     val brass: Color,
     val warning: Color,
     val success: Color,
-    val bark: Color
+    val bark: Color,
+    val astrolabeRing: Color = borderStrong
 ) {
     val rule: Color get() = border
     val ruleDark: Color get() = borderStrong
@@ -50,42 +51,44 @@ data class MessColors(
 val LocalIsNight = staticCompositionLocalOf { false }
 
 val LightMessColors = MessColors(
-    background = PageLight,
-    surface = SurfaceLight,
-    elevated = ElevatedLight,
-    border = BorderLight,
-    borderStrong = BorderStrongLight,
-    textPrimary = TextPrimaryLight,
-    textSecondary = TextSecondaryLight,
-    textTertiary = TextTertiaryLight,
-    tangerine = TangerineLight,
+    background = Paper,
+    surface = CardLight,
+    elevated = CardLight,
+    border = Rule,
+    borderStrong = RuleDk,
+    textPrimary = Ink,
+    textSecondary = InkSoft,
+    textTertiary = Pencil,
+    tangerine = Fruit,
     onTangerine = OnTangerineLight,
     leaf = LeafLight,
-    brass = BrassLight,
-    warning = WarningLight,
+    brass = Brass,
+    warning = StampRed,
     success = SuccessLight,
-    bark = BarkLight
+    bark = BarkLight,
+    astrolabeRing = RuleDk
 )
 
 val DarkMessColors = MessColors(
-    background = PageDark,
-    surface = SurfaceDark,
-    elevated = ElevatedDark,
-    border = BorderDark,
-    borderStrong = BorderStrongDark,
-    textPrimary = TextPrimaryDark,
-    textSecondary = TextSecondaryDark,
-    textTertiary = TextTertiaryDark,
+    background = VoidColor,
+    surface = CardDark,
+    elevated = NightSurfaceVariant,
+    border = EtchedRule,
+    borderStrong = EtchedRuleStrong,
+    textPrimary = TextLight,
+    textSecondary = TextSoft,
+    textTertiary = TextDim,
     tangerine = TangerineDark,
     onTangerine = OnTangerineDark,
-    leaf = LeafDark,
-    brass = BrassDark,
-    warning = WarningDark,
-    success = SuccessDark,
-    bark = BarkDark
+    leaf = NightLeaf,
+    brass = Brass,
+    warning = Ember,
+    success = Sage,
+    bark = NightBark,
+    astrolabeRing = EtchedRuleStrong
 )
 
-/** Strict AMOLED: only when [FoodJournalTheme] is explicitly asked for it. */
+/** Kept for callers that explicitly opt into the strict AMOLED surfaces. */
 val AmoledMessColors = DarkMessColors.copy(
     background = PageAmoled,
     surface = SurfaceAmoled,
@@ -95,41 +98,41 @@ val AmoledMessColors = DarkMessColors.copy(
 val LocalMessColors = staticCompositionLocalOf { LightMessColors }
 
 private val LightColorScheme = lightColorScheme(
-    primary = TangerineLight,
-    onPrimary = OnTangerineLight,
-    secondary = BrassLight,
-    onSecondary = SurfaceLight,
-    tertiary = LeafLight,
-    onTertiary = SurfaceLight,
-    background = PageLight,
-    onBackground = TextPrimaryLight,
-    surface = SurfaceLight,
-    onSurface = TextPrimaryLight,
-    surfaceVariant = ElevatedLight,
-    onSurfaceVariant = TextSecondaryLight,
-    outline = BorderLight,
-    outlineVariant = BorderStrongLight,
-    error = WarningLight,
-    onError = SurfaceLight
+    primary = Ink,
+    onPrimary = Paper,
+    secondary = Brass,
+    onSecondary = Paper,
+    tertiary = StampRed,
+    onTertiary = Paper,
+    background = Paper,
+    onBackground = Ink,
+    surface = CardLight,
+    onSurface = Ink,
+    surfaceVariant = CardLight,
+    onSurfaceVariant = InkSoft,
+    outline = RuleDk,
+    outlineVariant = Rule,
+    error = StampRed,
+    onError = Paper
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = TangerineDark,
-    onPrimary = PageDark,
-    secondary = BrassDark,
-    onSecondary = PageDark,
-    tertiary = LeafDark,
-    onTertiary = PageDark,
-    background = PageDark,
-    onBackground = TextPrimaryDark,
-    surface = SurfaceDark,
-    onSurface = TextPrimaryDark,
-    surfaceVariant = ElevatedDark,
-    onSurfaceVariant = TextSecondaryDark,
-    outline = BorderDark,
-    outlineVariant = BorderStrongDark,
-    error = WarningDark,
-    onError = PageDark
+    primary = TextLight,
+    onPrimary = VoidColor,
+    secondary = Brass,
+    onSecondary = VoidColor,
+    tertiary = Ember,
+    onTertiary = VoidColor,
+    background = VoidColor,
+    onBackground = TextLight,
+    surface = CardDark,
+    onSurface = TextLight,
+    surfaceVariant = NightSurfaceVariant,
+    onSurfaceVariant = TextSoft,
+    outline = EtchedRuleStrong,
+    outlineVariant = EtchedRule,
+    error = Ember,
+    onError = VoidColor
 )
 
 private val AmoledColorScheme = DarkColorScheme.copy(
@@ -137,10 +140,6 @@ private val AmoledColorScheme = DarkColorScheme.copy(
     surface = SurfaceAmoled
 )
 
-/**
- * @param amoled opt-in strict AMOLED canvas (#000000 / #14110E). The default
- * dark canvas stays the warmer #0F0D0B / #171411 pair.
- */
 @Composable
 fun FoodJournalTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

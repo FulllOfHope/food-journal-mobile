@@ -76,7 +76,6 @@ import com.messledger.app.ui.ReceiptDialog
 import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.ui.theme.MessColors
-import com.messledger.app.ui.theme.messSurface
 import com.messledger.app.updates.UpdateManager
 import com.messledger.app.viewmodel.MessState
 import com.messledger.app.viewmodel.MessViewModel
@@ -597,105 +596,6 @@ private fun LedgerHeading(text: String, style: TextStyle) {
     }
 }
 
-/** One flat card: automatic checks, a manual refresh, and when we last looked. */
-@Composable
-private fun AppUpdatesSection(updateManager: UpdateManager) {
-    val colors = LocalMessColors.current
-    val settings by updateManager.updateSettings.collectAsState()
-    val checking by updateManager.isChecking.collectAsState()
-
-    val lastChecked = remember(settings.lastUpdateCheckAt) {
-        if (settings.lastUpdateCheckAt == 0L) {
-            "Not checked yet"
-        } else {
-            val minutes = (System.currentTimeMillis() - settings.lastUpdateCheckAt)
-                .coerceAtLeast(0L) / 60_000L
-            when {
-                minutes < 1L -> "Checked just now"
-                minutes < 60L -> "Checked $minutes min ago"
-                minutes < 1_440L -> "Checked ${minutes / 60L} h ago"
-                else -> "Checked ${minutes / 1_440L} d ago"
-            }
-        }
-    }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        LedgerHeading(
-            text = "App updates",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .messSurface()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_groove_foreground),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Automatic checks",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = colors.textPrimary
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Looks for a new release every six hours. No analytics or tracking.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.textSecondary
-                    )
-                }
-                Switch(
-                    checked = settings.updateChecksEnabled,
-                    onCheckedChange = { updateManager.setUpdateChecksEnabled(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = colors.tangerine,
-                        checkedTrackColor = colors.tangerine.copy(alpha = 0.35f),
-                        uncheckedThumbColor = colors.textTertiary,
-                        uncheckedTrackColor = colors.surface,
-                        uncheckedBorderColor = colors.borderStrong
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OutlinedButton(
-                    onClick = { updateManager.checkNow() },
-                    enabled = !checking,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = colors.textPrimary
-                    ),
-                    border = BorderStroke(1.dp, colors.ruleDark)
-                ) {
-                    Text(if (checking) "Checking…" else "Check now")
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = lastChecked,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.textTertiary
-                )
-            }
-        }
-    }
-}
-
 /**
  * Version, a short description, and one very small easter egg: the warden's
  * seal only approves the ledger after five taps.
@@ -820,6 +720,110 @@ private fun AboutSection() {
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textTertiary
                 )
+            }
+        }
+    }
+}
+
+/**
+ * App updates, in the same paper card language as the rest of Settings.
+ * Privacy note is deliberate: the only network call is to GitHub Releases.
+ */
+@Composable
+private fun AppUpdatesSection(updateManager: UpdateManager) {
+    val colors = LocalMessColors.current
+    val isDark = LocalIsNight.current
+    val settings by updateManager.updateSettings.collectAsState()
+    val checking by updateManager.isChecking.collectAsState()
+
+    val lastChecked = remember(settings.lastUpdateCheckAt) {
+        if (settings.lastUpdateCheckAt == 0L) {
+            "Not checked yet"
+        } else {
+            val minutes = (System.currentTimeMillis() - settings.lastUpdateCheckAt)
+                .coerceAtLeast(0L) / 60_000L
+            when {
+                minutes < 1L -> "Checked just now"
+                minutes < 60L -> "Checked $minutes min ago"
+                minutes < 1_440L -> "Checked ${minutes / 60L} h ago"
+                else -> "Checked ${minutes / 1_440L} d ago"
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        LedgerHeading(
+            text = "App updates",
+            style = MaterialTheme.typography.headlineMedium
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = colors.surface),
+            border = if (isDark) BorderStroke(1.dp, colors.rule) else null
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_food_foreground),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Automatic checks",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colors.textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Looks for a new release every six hours. No analytics or tracking.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSecondary
+                        )
+                    }
+                    Switch(
+                        checked = settings.updateChecksEnabled,
+                        onCheckedChange = { updateManager.setUpdateChecksEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.tangerine,
+                            checkedTrackColor = colors.tangerine.copy(alpha = 0.35f),
+                            uncheckedThumbColor = colors.textTertiary,
+                            uncheckedTrackColor = colors.surface,
+                            uncheckedBorderColor = colors.borderStrong
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    OutlinedButton(
+                        onClick = { updateManager.checkNow() },
+                        enabled = !checking,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = colors.textPrimary
+                        ),
+                        border = BorderStroke(1.dp, colors.ruleDark)
+                    ) {
+                        Text(if (checking) "Checking…" else "Check now")
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = lastChecked,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.textTertiary
+                    )
+                }
             }
         }
     }
