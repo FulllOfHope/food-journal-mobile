@@ -598,7 +598,7 @@ private fun AboutSection() {
     val version = remember {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "2.0.0"
+        }.getOrNull() ?: "2.1.0"
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
