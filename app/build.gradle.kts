@@ -13,8 +13,8 @@ android {
         applicationId = "com.messledger.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 10
-        versionName = "2.1.0"
+        versionCode = 11
+        versionName = "2.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
