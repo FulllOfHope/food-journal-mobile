@@ -1,6 +1,5 @@
 package com.messledger.app.ui.screens
 
-import android.app.DatePickerDialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -46,10 +45,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.messledger.app.data.MealType
 import com.messledger.app.domain.BillingEngine
+import com.messledger.app.ui.GrooveDatePickerDialog
 import com.messledger.app.ui.MealCard
 import com.messledger.app.ui.RangeActionDialog
 import com.messledger.app.ui.theme.LocalIsNight
@@ -63,9 +62,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun LogScreen(viewModel: MessViewModel) {
     val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
     var expandedDate by remember { mutableStateOf<LocalDate?>(null) }
     var rangeStart by remember { mutableStateOf<LocalDate?>(null) }
+    var pickingDate by remember { mutableStateOf(false) }
     val colors = LocalMessColors.current
 
     // Sort dates descending
@@ -93,19 +92,7 @@ fun LogScreen(viewModel: MessViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = {
-                        val current = state.selectedDate
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, dayOfMonth ->
-                                // DatePickerDialog month is 0-indexed
-                                onPickDate(LocalDate.of(year, month + 1, dayOfMonth))
-                            },
-                            current.year,
-                            current.monthValue - 1,
-                            current.dayOfMonth
-                        ).show()
-                    },
+                    onClick = { pickingDate = true },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = Color.Transparent,
@@ -224,6 +211,17 @@ fun LogScreen(viewModel: MessViewModel) {
                     )
                 }
             }
+        }
+
+        if (pickingDate) {
+            GrooveDatePickerDialog(
+                initialDate = state.selectedDate,
+                onDismiss = { pickingDate = false },
+                onDateSelected = { picked ->
+                    pickingDate = false
+                    onPickDate(picked)
+                }
+            )
         }
     }
 

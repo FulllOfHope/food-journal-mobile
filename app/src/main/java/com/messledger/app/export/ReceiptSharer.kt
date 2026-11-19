@@ -42,10 +42,10 @@ object ReceiptSharer {
     private val rangeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
     private val shortFormatter = DateTimeFormatter.ofPattern("EEE, d MMM")
 
-    fun subject(): String = "Mess Ledger bill receipt"
+    fun subject(): String = "Food Journal bill receipt"
 
     fun receiptText(data: ReceiptData): String = buildString {
-        appendLine("MESS LEDGER")
+        appendLine("FOOD JOURNAL")
         appendLine("Bill receipt")
         appendLine("${data.cycleStart.format(rangeFormatter)} — ${data.cycleEnd.format(rangeFormatter)}")
         appendLine()
@@ -58,7 +58,7 @@ object ReceiptSharer {
         appendLine("GST                ₹${"%.2f".format(data.tax)}")
         appendLine("TOTAL              ₹${"%.2f".format(data.total)}")
         appendLine()
-        appendLine("Mess Ledger · warden's copy")
+        appendLine("Food Journal · your copy")
     }
 
     fun shareText(context: Context, data: ReceiptData) {
@@ -165,7 +165,7 @@ object ReceiptSharer {
         }
 
         var y = 90f
-        canvas.drawText("MESS LEDGER", margin, y, titlePaint)
+        canvas.drawText("FOOD JOURNAL", margin, y, titlePaint)
         y += 38f
         canvas.drawText("BILL RECEIPT", margin, y, subtitlePaint)
         y += 54f
@@ -209,7 +209,7 @@ object ReceiptSharer {
 
         y += 52f
         canvas.drawText(
-            "Generated ${LocalDate.now().format(shortFormatter)} · warden's copy",
+            "Generated ${LocalDate.now().format(shortFormatter)} · your copy",
             margin,
             y,
             footerPaint

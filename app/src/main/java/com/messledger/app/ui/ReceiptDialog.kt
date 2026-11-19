@@ -34,7 +34,7 @@ import com.messledger.app.viewmodel.MessState
 import java.time.LocalDate
 
 /**
- * The bill as the warden would hand it over: a compact, printable summary of
+ * A compact, printable summary of the billing cycle.
  * the cycle with a shareable PNG and a plain-text fallback.
  */
 @Composable

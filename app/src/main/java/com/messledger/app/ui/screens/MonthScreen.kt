@@ -1,19 +1,10 @@
 package com.messledger.app.ui.screens
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,19 +17,18 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Remove
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,114 +42,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.messledger.app.data.MealType
 import com.messledger.app.domain.BillingEngine
-import com.messledger.app.domain.CalendarDayModel
-import com.messledger.app.domain.MealDisplayStatus
-import com.messledger.app.domain.mapCalendarMonth
-import com.messledger.app.ui.MealStateDot
 import com.messledger.app.ui.RangeActionDialog
+import com.messledger.app.ui.theme.LocalIsNight
 import com.messledger.app.ui.theme.LocalMessColors
-import com.messledger.app.ui.theme.rememberMotionDuration
-import com.messledger.app.ui.theme.tabularNumbers
 import com.messledger.app.viewmodel.MessState
 import com.messledger.app.viewmodel.MessViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
-
-private val monthFormatter = DateTimeFormatter.ofPattern("MMMM uuuu")
-private val cycleFormatter = DateTimeFormatter.ofPattern("d MMM")
-private val semanticFormatter = DateTimeFormatter.ofPattern("d MMMM")
 
 @Composable
 fun MonthScreen(viewModel: MessViewModel) {
     val state by viewModel.state.collectAsState()
     val colors = LocalMessColors.current
-    val duration = rememberMotionDuration(120)
-    val density = LocalDensity.current
-    val swipeThreshold = with(density) { 80.dp.toPx() }
-
+    val isDark = LocalIsNight.current
     var rangeStart by remember { mutableStateOf<LocalDate?>(null) }
-    var rangeEnd by remember { mutableStateOf<LocalDate?>(null) }
-    var showRangeSheet by remember { mutableStateOf(false) }
 
     val currentMonth = state.selectedDate.withDayOfMonth(1)
-    val today = LocalDate.now()
-    val (cycleStart, cycleEnd) = BillingEngine.cycleRange(state.selectedDate)
+    val daysInMonth = currentMonth.lengthOfMonth()
+    val firstDayOfWeek = currentMonth.dayOfWeek.value % 7 // Sunday = 0
 
-    val range = if (rangeStart != null) {
-        (rangeStart!!) to (rangeEnd ?: rangeStart!!)
-    } else null
-    val daysFor: (LocalDate) -> List<CalendarDayModel> = { targetMonth ->
-        mapCalendarMonth(
-            month = targetMonth,
-            recordsByDate = state.cycleMeals,
-            config = state.config,
-            range = range
-        )
-    }
-    val rangeEdges = range?.let { (start, end) ->
-        if (start <= end) start to end else end to start
-    }
-
-    fun openRange(anchor: LocalDate, end: LocalDate? = null) {
-        rangeStart = anchor
-        rangeEnd = end ?: anchor
-        showRangeSheet = true
-    }
-
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .focusable()
-            .onKeyEvent { event ->
-                when (event.key) {
-                    Key.DirectionLeft -> viewModel.setSelectedDate(state.selectedDate.minusDays(1))
-                    Key.DirectionRight -> viewModel.setSelectedDate(state.selectedDate.plusDays(1))
-                    Key.DirectionUp -> viewModel.setSelectedDate(state.selectedDate.minusDays(7))
-                    Key.DirectionDown -> viewModel.setSelectedDate(state.selectedDate.plusDays(7))
-                    else -> return@onKeyEvent false
-                }
-                true
-            }
-            .pointerInput(rangeStart) {
-                if (rangeStart != null) return@pointerInput
-                var totalDrag = 0f
-                detectHorizontalDragGestures(
-                    onDragStart = { totalDrag = 0f },
-                    onHorizontalDrag = { change, amount ->
-                        change.consume()
-                        totalDrag += amount
-                    },
-                    onDragEnd = {
-                        if (totalDrag > swipeThreshold) {
-                            viewModel.setSelectedDate(state.selectedDate.minusMonths(1))
-                        } else if (totalDrag < -swipeThreshold) {
-                            viewModel.setSelectedDate(state.selectedDate.plusMonths(1))
-                        }
-                    }
-                )
-            }
-    ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val twoPane = maxWidth >= 840.dp
+        val narrow = maxWidth < 360.dp
 
         if (twoPane) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 Row(
                     modifier = Modifier
                         .widthIn(max = 1180.dp)
@@ -174,33 +90,29 @@ fun MonthScreen(viewModel: MessViewModel) {
                     ) {
                         MonthHeader(
                             month = currentMonth,
-                            cycleStart = cycleStart,
-                            cycleEnd = cycleEnd,
+                            narrow = narrow,
                             onPrevious = { viewModel.setSelectedDate(state.selectedDate.minusMonths(1)) },
-                            onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) },
-                            onToday = { viewModel.setSelectedDate(today) }
+                            onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        WeekdayHeader()
+                        WeekdayHeader(isDark = isDark)
                         Spacer(modifier = Modifier.height(8.dp))
-                        MonthPager(
-                            daysFor = daysFor,
-                            month = currentMonth,
-                            selectedDate = state.selectedDate,
-                            today = today,
-                            rangeEdges = rangeEdges,
-                            duration = duration,
+                        MonthGrid(
+                            currentMonth = currentMonth,
+                            daysInMonth = daysInMonth,
+                            firstDayOfWeek = firstDayOfWeek,
+                            state = state,
+                            isDark = isDark,
                             onSelect = { viewModel.setSelectedDate(it) },
-                            onAnchor = { rangeStart = it; rangeEnd = it },
-                            onPreview = { rangeEnd = it },
-                            onRelease = { showRangeSheet = rangeStart != null },
+                            onLongPress = { rangeStart = it },
                             modifier = Modifier.weight(1f)
                         )
                     }
 
                     SelectedDayPanel(
                         state = state,
-                        onOpenRange = { openRange(state.selectedDate) },
+                        isDark = isDark,
+                        onOpenRange = { rangeStart = state.selectedDate },
                         onGuestChange = { meal, delta ->
                             viewModel.changeGuestCount(state.selectedDate, meal, delta)
                         },
@@ -211,7 +123,10 @@ fun MonthScreen(viewModel: MessViewModel) {
                 }
             }
         } else {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 Column(
                     modifier = Modifier
                         .widthIn(max = 720.dp)
@@ -220,26 +135,21 @@ fun MonthScreen(viewModel: MessViewModel) {
                 ) {
                     MonthHeader(
                         month = currentMonth,
-                        cycleStart = cycleStart,
-                        cycleEnd = cycleEnd,
+                        narrow = narrow,
                         onPrevious = { viewModel.setSelectedDate(state.selectedDate.minusMonths(1)) },
-                        onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) },
-                        onToday = { viewModel.setSelectedDate(today) }
+                        onNext = { viewModel.setSelectedDate(state.selectedDate.plusMonths(1)) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    WeekdayHeader()
+                    WeekdayHeader(isDark = isDark)
                     Spacer(modifier = Modifier.height(8.dp))
-                    MonthPager(
-                        daysFor = daysFor,
-                        month = currentMonth,
-                        selectedDate = state.selectedDate,
-                        today = today,
-                        rangeEdges = rangeEdges,
-                        duration = duration,
+                    MonthGrid(
+                        currentMonth = currentMonth,
+                        daysInMonth = daysInMonth,
+                        firstDayOfWeek = firstDayOfWeek,
+                        state = state,
+                        isDark = isDark,
                         onSelect = { viewModel.setSelectedDate(it) },
-                        onAnchor = { rangeStart = it; rangeEnd = it },
-                        onPreview = { rangeEnd = it },
-                        onRelease = { showRangeSheet = rangeStart != null },
+                        onLongPress = { rangeStart = it },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -247,21 +157,14 @@ fun MonthScreen(viewModel: MessViewModel) {
         }
     }
 
-    if (showRangeSheet && rangeStart != null) {
+    rangeStart?.let { start ->
         RangeActionDialog(
-            initialStart = rangeStart!!,
-            initialEnd = rangeEnd ?: rangeStart!!,
-            onDismiss = {
-                showRangeSheet = false
-                rangeStart = null
-                rangeEnd = null
-            },
+            initialStart = start,
+            onDismiss = { rangeStart = null },
             onApply = { from, to, eaten ->
                 viewModel.setRangeStatus(from, to, eaten)
                 viewModel.setSelectedDate(from)
-                showRangeSheet = false
                 rangeStart = null
-                rangeEnd = null
             }
         )
     }
@@ -270,329 +173,171 @@ fun MonthScreen(viewModel: MessViewModel) {
 @Composable
 private fun MonthHeader(
     month: LocalDate,
-    cycleStart: LocalDate,
-    cycleEnd: LocalDate,
+    narrow: Boolean,
     onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onToday: () -> Unit
+    onNext: () -> Unit
 ) {
     val colors = LocalMessColors.current
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RoundIconButton(icon = Icons.Rounded.ChevronLeft, label = "Previous month", onClick = onPrevious)
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = month.format(monthFormatter),
-                style = MaterialTheme.typography.headlineSmall.tabularNumbers(),
-                color = colors.textPrimary,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-            Text(
-                text = "Cycle ${cycleStart.format(cycleFormatter)} – ${cycleEnd.format(cycleFormatter)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textTertiary,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-        }
-        RoundIconButton(icon = Icons.Rounded.ChevronRight, label = "Next month", onClick = onNext)
         TextButton(
-            onClick = onToday,
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+            onClick = onPrevious,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
         ) {
-            Text("Today", color = colors.tangerine, maxLines = 1)
+            Text(if (narrow) "◀" else "◀ Prev", color = colors.textPrimary)
+        }
+        Text(
+            text = "${month.month} ${month.year}",
+            style = if (narrow) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+            color = colors.textPrimary,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        TextButton(
+            onClick = onNext,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text(if (narrow) "▶" else "Next ▶", color = colors.textPrimary)
         }
     }
 }
 
 @Composable
-private fun RoundIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
+private fun WeekdayHeader(isDark: Boolean) {
     val colors = LocalMessColors.current
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(40.dp)
-            .border(1.dp, colors.border, CircleShape)
-    ) {
-        Icon(icon, contentDescription = label, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
-    }
-}
-
-@Composable
-private fun WeekdayHeader() {
-    val colors = LocalMessColors.current
-    val style = MaterialTheme.typography.labelSmall.copy(
-        fontSize = 11.sp,
-        letterSpacing = 1.5.sp
-    )
 
     Row(modifier = Modifier.fillMaxWidth()) {
-        listOf("S", "M", "T", "W", "T", "F", "S").forEach { label ->
+        listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat").forEach {
             Text(
-                text = label,
+                text = it,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
-                style = style,
-                color = colors.textTertiary,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isDark) colors.textTertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
         }
     }
 }
 
-@Composable
-private fun MonthPager(
-    daysFor: (LocalDate) -> List<CalendarDayModel>,
-    month: LocalDate,
-    selectedDate: LocalDate,
-    today: LocalDate,
-    rangeEdges: Pair<LocalDate, LocalDate>?,
-    duration: Int,
-    onSelect: (LocalDate) -> Unit,
-    onAnchor: (LocalDate) -> Unit,
-    onPreview: (LocalDate) -> Unit,
-    onRelease: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    AnimatedContent(
-        targetState = month,
-        transitionSpec = {
-            fadeIn(tween(duration)) togetherWith fadeOut(tween(duration))
-        },
-        label = "month_crossfade",
-        modifier = modifier
-    ) { targetMonth ->
-        GrooveMonthGrid(
-            days = daysFor(targetMonth),
-            selectedDate = selectedDate,
-            today = today,
-            rangeEdges = rangeEdges,
-            onSelect = onSelect,
-            onAnchor = onAnchor,
-            onPreview = onPreview,
-            onRelease = onRelease
-        )
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GrooveMonthGrid(
-    days: List<CalendarDayModel>,
-    selectedDate: LocalDate,
-    today: LocalDate,
-    rangeEdges: Pair<LocalDate, LocalDate>?,
+private fun MonthGrid(
+    currentMonth: LocalDate,
+    daysInMonth: Int,
+    firstDayOfWeek: Int,
+    state: MessState,
+    isDark: Boolean,
     onSelect: (LocalDate) -> Unit,
-    onAnchor: (LocalDate) -> Unit,
-    onPreview: (LocalDate) -> Unit,
-    onRelease: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        for (row in 0 until 6) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                for (col in 0 until 7) {
-                    val index = row * 7 + col
-                    val model = days.getOrNull(index) ?: return@Row
-                    GrooveDayCell(
-                        model = model,
-                        index = index,
-                        isSelected = model.date == selectedDate,
-                        isToday = model.date == today,
-                        isRangeStart = rangeEdges?.first == model.date,
-                        isRangeEnd = rangeEdges?.second == model.date,
-                        onSelect = onSelect,
-                        onAnchor = onAnchor,
-                        onPreview = onPreview,
-                        onRelease = onRelease,
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .heightIn(min = 44.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun GrooveDayCell(
-    model: CalendarDayModel,
-    index: Int,
-    isSelected: Boolean,
-    isToday: Boolean,
-    isRangeStart: Boolean,
-    isRangeEnd: Boolean,
-    onSelect: (LocalDate) -> Unit,
-    onAnchor: (LocalDate) -> Unit,
-    onPreview: (LocalDate) -> Unit,
-    onRelease: () -> Unit,
+    onLongPress: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalMessColors.current
 
-    val container = when {
-        model.inRange -> colors.tangerine.copy(alpha = 0.12f)
-        isSelected -> colors.elevated
-        else -> colors.surface
-    }
-    val borderColor = when {
-        isSelected || isToday || isRangeStart || isRangeEnd -> colors.tangerine
-        model.inRange -> colors.tangerine.copy(alpha = 0.35f)
-        else -> colors.border
-    }
-
-    val description = buildString {
-        append(model.date.format(semanticFormatter))
-        append(", ")
-        append(
-            MealType.values().joinToString(", ") { meal ->
-                "${meal.name.lowercase()} ${model.statuses[meal]?.name?.lowercase() ?: "closed"}"
-            }
-        )
-        if (model.guestCount > 0) {
-            append(", ${model.guestCount} guest${if (model.guestCount == 1) "" else "s"}")
-        }
-        if (model.revised) append(", revised")
-    }
-
-    Box(
-        modifier = modifier
-            .background(container)
-            .border(1.dp, borderColor)
-            .combinedClickable(
-                onClick = { onSelect(model.date) },
-                onLongClick = { onAnchor(model.date) }
-            )
-            .pointerInput(model.date, index) {
-                var start = Offset.Zero
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { offset ->
-                        start = offset
-                        onAnchor(model.date)
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        val cellWidth = size.width.toFloat().coerceAtLeast(1f)
-                        val cellHeight = size.height.toFloat().coerceAtLeast(1f)
-                        val colDelta = ((change.position.x - start.x) / cellWidth).roundToInt()
-                        val rowDelta = ((change.position.y - start.y) / cellHeight).roundToInt()
-                        val target = (index + rowDelta * 7 + colDelta).coerceIn(0, 41)
-                        onPreview(model.date.plusDays((target - index).toLong()))
-                    },
-                    onDragEnd = { onRelease() },
-                    onDragCancel = { onRelease() }
-                )
-            }
-            .clearAndSetSemantics { contentDescription = description },
-        contentAlignment = Alignment.Center
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(7),
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "${model.date.dayOfMonth}",
-                    style = MaterialTheme.typography.labelMedium.tabularNumbers(),
-                    color = if (model.inMonth) colors.textPrimary else colors.textTertiary.copy(alpha = 0.35f),
-                    maxLines = 1
-                )
-                if (model.inMonth && model.guestCount > 0) {
-                    Spacer(modifier = Modifier.size(2.dp))
-                    Text(
-                        text = "+${model.guestCount}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.textTertiary,
-                        maxLines = 1
-                    )
-                }
-            }
+        items(firstDayOfWeek) {
+            Spacer(modifier = Modifier.aspectRatio(1f))
+        }
 
-            if (model.inMonth) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+        items(daysInMonth) { dayIndex ->
+            val date = currentMonth.plusDays(dayIndex.toLong())
+            val records = state.cycleMeals[date] ?: emptyList()
+            val dayMap = records.associateBy { it.mealType }
+            val rule = BillingEngine.ruleFor(date, state.config)
+            val isSelected = date == state.selectedDate
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .aspectRatio(1f)
+                    .padding(2.dp)
+                    .combinedClickable(
+                        onClick = { onSelect(date) },
+                        onLongClick = { onLongPress(date) }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                // Ticks and type grow with the cell, so a 320dp phone and a
+                // 1280dp tablet both read as the same calendar.
+                val cellWidth = maxWidth
+                val tickSize = (cellWidth * 0.17f).coerceIn(6.dp, 11.dp)
+                val numberStyle = when {
+                    cellWidth < 42.dp -> MaterialTheme.typography.bodySmall
+                    cellWidth > 62.dp -> MaterialTheme.typography.bodyLarge
+                    else -> MaterialTheme.typography.bodyMedium
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxSize(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when {
+                            isSelected && isDark -> colors.rule.copy(alpha = 0.35f)
+                            isDark -> colors.surface
+                            else -> CardDefaults.cardColors().containerColor
+                        }
+                    ),
+                    border = when {
+                        isSelected -> BorderStroke(1.dp, if (isDark) colors.brass else colors.accentRed)
+                        isDark -> BorderStroke(1.dp, colors.rule)
+                        else -> null
+                    }
                 ) {
-                    MealType.values().forEach { meal ->
-                        val status = model.statuses[meal] ?: MealDisplayStatus.CLOSED
-                        MealTick(
-                            status = status == MealDisplayStatus.EATEN,
-                            isClosed = status == MealDisplayStatus.CLOSED,
-                            recorded = status != MealDisplayStatus.UNTOUCHED,
-                            tickSize = 9.dp,
-                            containerColor = container
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "${dayIndex + 1}",
+                            style = numberStyle,
+                            color = colors.textPrimary,
+                            maxLines = 1
                         )
+
+                        Spacer(modifier = Modifier.height(if (cellWidth < 44.dp) 2.dp else 4.dp))
+
+                        // Visual ticks for B L D
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            MealTick(
+                                status = dayMap[MealType.BREAKFAST]?.status ?: true,
+                                isClosed = !rule.breakfast,
+                                tickSize = tickSize
+                            )
+                            MealTick(
+                                status = dayMap[MealType.LUNCH]?.status ?: true,
+                                isClosed = rule.lunchPortions == 0,
+                                tickSize = tickSize
+                            )
+                            MealTick(
+                                status = dayMap[MealType.DINNER]?.status ?: true,
+                                isClosed = !rule.dinner,
+                                tickSize = tickSize
+                            )
+                        }
                     }
                 }
             }
-        }
-
-        if (isToday && model.inMonth) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 3.dp)
-                    .size(3.dp)
-                    .background(colors.tangerine, CircleShape)
-            )
-        }
-
-        if (model.inMonth && model.revised) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(5.dp)
-                    .drawBehind {
-                        drawLine(
-                            color = colors.tangerine,
-                            start = Offset(0f, size.height),
-                            end = Offset(size.width, 0f),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    }
-            )
         }
     }
-}
-
-/** The skipped slash is cut with the resolved cell container colour. */
-@Composable
-fun MealTick(
-    status: Boolean,
-    isClosed: Boolean,
-    tickSize: Dp = 8.dp,
-    recorded: Boolean = true,
-    containerColor: Color? = null
-) {
-    MealStateDot(
-        status = status,
-        recorded = recorded,
-        closed = isClosed,
-        modifier = Modifier.size(tickSize),
-        containerColor = containerColor
-    )
 }
 
 @Composable
 private fun SelectedDayPanel(
     state: MessState,
+    isDark: Boolean,
     onOpenRange: () -> Unit,
     onGuestChange: (MealType, Int) -> Unit,
     modifier: Modifier = Modifier
@@ -612,10 +357,10 @@ private fun SelectedDayPanel(
     val eatenCount = meals.count { dayMap[it]?.status ?: true }
     val dailyTotal = BillingEngine.dayLiability(date, dayMap, state.config)
 
-    Box(
-        modifier = modifier
-            .background(colors.surface, RoundedCornerShape(12.dp))
-            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        border = if (isDark) BorderStroke(1.dp, colors.rule) else null
     ) {
         Column(
             modifier = Modifier
@@ -630,8 +375,8 @@ private fun SelectedDayPanel(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = date.format(semanticFormatter),
-                style = MaterialTheme.typography.titleLarge.tabularNumbers(),
+                text = date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
+                style = MaterialTheme.typography.titleLarge,
                 color = colors.textPrimary
             )
             Text(
@@ -642,12 +387,17 @@ private fun SelectedDayPanel(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            // The range editor lives here rather than in the month heading so
+            // the heading stays clean on narrow screens.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
                 TextButton(
                     onClick = onOpenRange,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Text("Mark a range", color = colors.tangerine)
+                    Text("Mark a range", color = colors.brass)
                 }
             }
 
@@ -662,22 +412,15 @@ private fun SelectedDayPanel(
             Spacer(modifier = Modifier.height(16.dp))
 
             meals.forEach { meal ->
-                val record = dayMap[meal]
-                val eaten = record?.status ?: true
-                val guests = record?.guestCount ?: 0
+                val eaten = dayMap[meal]?.status ?: true
+                val guests = dayMap[meal]?.guestCount ?: 0
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    MealTick(
-                        status = eaten,
-                        isClosed = false,
-                        recorded = record != null,
-                        tickSize = 10.dp,
-                        containerColor = colors.surface
-                    )
+                    MealTick(status = eaten, isClosed = false, tickSize = 10.dp)
                     Spacer(modifier = Modifier.size(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -687,44 +430,42 @@ private fun SelectedDayPanel(
                         )
                         if (guests > 0) {
                             Text(
-                                text = "+$guests guest portion${if (guests == 1) "" else "s"}",
+                                text = "$guests guest portion${if (guests == 1) "" else "s"}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = colors.textTertiary
+                                color = colors.brass
                             )
                         }
                     }
 
                     if (guests > 0) {
-                        IconButton(onClick = { onGuestChange(meal, -1) }, modifier = Modifier.size(28.dp)) {
+                        IconButton(
+                            onClick = { onGuestChange(meal, -1) },
+                            modifier = Modifier.size(28.dp)
+                        ) {
                             Icon(
-                                Icons.Rounded.Remove,
+                                imageVector = Icons.Rounded.Remove,
                                 contentDescription = "Remove guest portion",
                                 tint = colors.textSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
                     }
-                    IconButton(onClick = { onGuestChange(meal, 1) }, modifier = Modifier.size(28.dp)) {
+                    IconButton(
+                        onClick = { onGuestChange(meal, 1) },
+                        modifier = Modifier.size(28.dp)
+                    ) {
                         Icon(
-                            Icons.Rounded.Add,
+                            imageVector = Icons.Rounded.Add,
                             contentDescription = "Add guest portion",
-                            tint = colors.tangerine,
+                            tint = colors.brass,
                             modifier = Modifier.size(16.dp)
                         )
                     }
 
                     Text(
-                        text = when {
-                            record == null -> "Untouched"
-                            eaten -> "Eaten"
-                            else -> "Skipped"
-                        },
+                        text = if (eaten) "Eaten" else "Skipped",
                         style = MaterialTheme.typography.bodySmall,
-                        color = when {
-                            record == null -> colors.textTertiary
-                            eaten -> colors.success
-                            else -> colors.warning
-                        }
+                        color = if (eaten) colors.eaten else colors.missed
                     )
                 }
             }
@@ -736,7 +477,7 @@ private fun SelectedDayPanel(
                         .padding(vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    MealTick(status = true, isClosed = true, tickSize = 10.dp, containerColor = colors.surface)
+                    MealTick(status = true, isClosed = true, tickSize = 10.dp)
                     Spacer(modifier = Modifier.size(10.dp))
                     Text(
                         text = meal.name.lowercase().replaceFirstChar { it.uppercase() },
@@ -744,7 +485,11 @@ private fun SelectedDayPanel(
                         color = colors.textTertiary,
                         modifier = Modifier.weight(1f)
                     )
-                    Text("Closed", style = MaterialTheme.typography.bodySmall, color = colors.textTertiary)
+                    Text(
+                        text = "Closed",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textTertiary
+                    )
                 }
             }
 
@@ -757,8 +502,38 @@ private fun SelectedDayPanel(
             )
             Text(
                 text = "₹%.2f".format(dailyTotal),
-                style = MaterialTheme.typography.headlineMedium.tabularNumbers(),
+                style = MaterialTheme.typography.headlineMedium,
                 color = colors.textPrimary
+            )
+        }
+    }
+}
+
+@Composable
+fun MealTick(
+    status: Boolean,
+    isClosed: Boolean,
+    tickSize: Dp = 8.dp
+) {
+    val colors = LocalMessColors.current
+    Canvas(modifier = Modifier.size(tickSize)) {
+        if (isClosed) {
+            drawLine(
+                color = colors.textTertiary.copy(alpha = 0.5f),
+                start = Offset(0f, size.height / 2),
+                end = Offset(size.width, size.height / 2),
+                strokeWidth = 2f
+            )
+        } else if (status) {
+            drawCircle(color = colors.eaten, radius = size.minDimension / 2)
+        } else {
+            // A missed meal: a filled dot cut by the card's own paper.
+            drawCircle(color = colors.missed, radius = size.minDimension / 2)
+            drawLine(
+                color = colors.surface,
+                start = Offset(size.width * 0.15f, size.height * 0.15f),
+                end = Offset(size.width * 0.85f, size.height * 0.85f),
+                strokeWidth = 1.5.dp.toPx()
             )
         }
     }

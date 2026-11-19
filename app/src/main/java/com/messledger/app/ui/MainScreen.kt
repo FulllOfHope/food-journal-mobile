@@ -50,7 +50,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,8 +69,6 @@ import com.messledger.app.ui.navigation.NavRoute
 import com.messledger.app.ui.theme.LocalMessColors
 import com.messledger.app.ui.theme.NightCanvasTop
 import com.messledger.app.viewmodel.MessViewModel
-import java.time.LocalTime
-import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(
@@ -289,14 +286,12 @@ private fun LedgerTopBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Mess Ledger",
+                text = "Food Journal",
                 style = MaterialTheme.typography.titleMedium,
                 color = colors.textPrimary
             )
 
             Spacer(modifier = Modifier.weight(1f))
-
-            NightCanteenNote()
 
             ThemeSwitch(
                 isDark = isDark,
@@ -362,41 +357,6 @@ private fun ThemeSwitch(
                     .background(colors.brass, CircleShape)
             )
         }
-    }
-}
-
-/**
- * A very small late-night easter egg: between midnight and 4 AM the masthead
- * admits that the canteen is still awake.
- */
-@Composable
-private fun NightCanteenNote() {
-    val colors = LocalMessColors.current
-
-    val now by produceState(initialValue = LocalTime.now()) {
-        while (true) {
-            delay(60_000)
-            value = LocalTime.now()
-        }
-    }
-
-    if (now.hour !in 0..3) return
-
-    Row(
-        modifier = Modifier.padding(end = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(5.dp)
-                .background(colors.brass, CircleShape)
-        )
-        Spacer(modifier = Modifier.size(6.dp))
-        Text(
-            text = "☕ Night canteen",
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.brass
-        )
     }
 }
 

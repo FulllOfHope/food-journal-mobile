@@ -25,8 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,23 +46,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.messledger.app.R
 import com.messledger.app.data.Config
 import com.messledger.app.export.DataExportManager
@@ -597,24 +586,20 @@ private fun LedgerHeading(text: String, style: TextStyle) {
 }
 
 /**
- * Version, a short description, and one very small easter egg: the warden's
- * seal only approves the ledger after five taps.
+ * Version and credits. The card simply says who built the app.
  */
 @Composable
 private fun AboutSection() {
     val colors = LocalMessColors.current
     val isDark = LocalIsNight.current
     val context = LocalContext.current
-    val haptics = LocalHapticFeedback.current
+    val uriHandler = LocalUriHandler.current
 
     val version = remember {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "1.5.1"
+        }.getOrNull() ?: "2.0.0"
     }
-
-    var taps by remember { mutableIntStateOf(0) }
-    val stamped = taps >= 5
 
     Column(modifier = Modifier.fillMaxWidth()) {
         LedgerHeading(
@@ -634,7 +619,7 @@ private fun AboutSection() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Mess Ledger",
+                        text = "Food Journal",
                         style = MaterialTheme.typography.titleLarge,
                         color = colors.textPrimary
                     )
@@ -647,78 +632,25 @@ private fun AboutSection() {
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "A quiet ledger for meals, rebates, and the 3rd-of-the-month bill.",
+                    text = "A quiet journal for meals, rebates, and the 3rd-of-the-month bill.",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textSecondary
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(96.dp)
-                        .drawBehind {
-                            drawRoundRect(
-                                color = if (stamped) colors.brass else colors.ruleDark,
-                                cornerRadius = CornerRadius(8.dp.toPx()),
-                                style = Stroke(
-                                    width = 1.5.dp.toPx(),
-                                    pathEffect = PathEffect.dashPathEffect(
-                                        floatArrayOf(10f, 8f)
-                                    )
-                                )
-                            )
-                        }
-                        .clickable {
-                            if (!stamped) {
-                                taps++
-                                if (taps == 5) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (stamped) {
-                        Row(
-                            modifier = Modifier.rotate(-6f),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Verified,
-                                contentDescription = null,
-                                tint = colors.brass,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text(
-                                text = "WARDEN APPROVED",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Serif,
-                                letterSpacing = 2.sp,
-                                color = colors.brass
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "The warden's stamp",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colors.textTertiary
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (stamped) {
-                        "The warden has looked the other way."
-                    } else {
-                        "Tap the seal five times."
-                    },
+                    text = "Credits",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Built by FullOfHope — github.com/FulllOfHope",
                     style = MaterialTheme.typography.bodySmall,
-                    color = colors.textTertiary
+                    color = colors.tangerine,
+                    modifier = Modifier.clickable {
+                        uriHandler.openUri("https://github.com/FulllOfHope")
+                    }
                 )
             }
         }

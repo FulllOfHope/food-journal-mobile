@@ -2,7 +2,7 @@ package com.messledger.app
 
 import androidx.compose.ui.graphics.Color
 import com.messledger.app.ui.theme.AmoledMessColors
-import com.messledger.app.ui.theme.Brass
+import com.messledger.app.ui.theme.BrassLight
 import com.messledger.app.ui.theme.CardDark
 import com.messledger.app.ui.theme.CardLight
 import com.messledger.app.ui.theme.DarkMessColors
@@ -18,6 +18,7 @@ import com.messledger.app.ui.theme.Rule
 import com.messledger.app.ui.theme.RuleDk
 import com.messledger.app.ui.theme.Sage
 import com.messledger.app.ui.theme.StampRed
+import com.messledger.app.ui.theme.TangerineDark
 import com.messledger.app.ui.theme.TextLight
 import com.messledger.app.ui.theme.VoidColor
 import org.junit.Assert.assertEquals
@@ -26,9 +27,8 @@ import org.junit.Test
 import kotlin.math.pow
 
 /**
- * Pins the restored v1.5.1 "Sunlit Scrapbook / The Night Ledger" palette.
- * The v2 Tangerine Grove tokens were deliberately replaced; these assertions
- * stop the journal palette from drifting back.
+ * Pins the restored paper journal by day and the near-black, orange-inked
+ * ledger by night. These assertions stop either palette from drifting back.
  */
 class ThemeTokenTest {
 
@@ -54,7 +54,7 @@ class ThemeTokenTest {
         assertEquals(Color(0xFFDDD5C2), Rule)
         assertEquals(Color(0xFFC0B797), RuleDk)
         assertEquals(Color(0xFFB3402E), StampRed)
-        assertEquals(Color(0xFFC8A46B), Brass)
+        assertEquals(Color(0xFFC8A46B), BrassLight)
 
         assertEquals(Paper, LightMessColors.background)
         assertEquals(CardLight, LightMessColors.surface)
@@ -65,20 +65,22 @@ class ThemeTokenTest {
     }
 
     @Test
-    fun nightLedgerPaletteIsRestored() {
+    fun nightPaletteIsBlackAndOrange() {
         assertEquals(Color(0xFF000000), VoidColor)
-        assertEquals(Color(0xFF1E1A16), CardDark)
-        assertEquals(Color(0xFFEDE6D8), TextLight)
-        assertEquals(Color(0xFFD08A6B), Ember)
-        assertEquals(Color(0xFF93A87C), Sage)
-        assertEquals(Color(0xFF7E8F63), NightLeaf)
-        assertEquals(Color(0xFF7A6248), NightBark)
+        assertEquals(Color(0xFF0E0B09), CardDark)
+        assertEquals(Color(0xFFF7F1E8), TextLight)
+        assertEquals(Color(0xFFFF7043), Ember)
+        assertEquals(Color(0xFF93B56D), Sage)
+        assertEquals(Color(0xFFA8C080), NightLeaf)
+        assertEquals(Color(0xFF8A6A50), NightBark)
+        assertEquals(Color(0xFFFF8A3D), TangerineDark)
 
         assertEquals(VoidColor, DarkMessColors.background)
         assertEquals(CardDark, DarkMessColors.surface)
         assertEquals(TextLight, DarkMessColors.textPrimary)
         assertEquals(Ember, DarkMessColors.accentRed)
         assertEquals(Sage, DarkMessColors.eaten)
+        assertEquals(TangerineDark, DarkMessColors.tangerine)
     }
 
     @Test

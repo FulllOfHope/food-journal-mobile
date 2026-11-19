@@ -52,7 +52,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -70,10 +69,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import kotlinx.coroutines.delay
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.min
-import kotlin.math.sin
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -432,8 +427,7 @@ private fun DaySummaryNote(state: MessState) {
 @Composable
 private fun DayVisual(state: MessState, isDark: Boolean, height: Dp) {
     val colors = LocalMessColors.current
-    val selectedDate = state.selectedDate
-    val rule = BillingEngine.ruleFor(selectedDate, state.config)
+    val rule = BillingEngine.ruleFor(state.selectedDate, state.config)
 
     Box(
         modifier = Modifier
@@ -442,267 +436,83 @@ private fun DayVisual(state: MessState, isDark: Boolean, height: Dp) {
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2, size.height / 2)
+            val center = Offset(size.width / 2f, size.height / 2f)
 
-            if (isDark) {
-                // ----------------------------------------------------
-                // THE NIGHT LEDGER (a quiet 25-bead cycle dial)
-                // ----------------------------------------------------
-                val outerRadius = min(size.width, size.height) / 2f * 0.86f
-                val innerRadius = outerRadius * 0.76f
-                val hairline = 1.dp.toPx()
-                val beadRadius = 3.dp.toPx()
-                val tickInset = 5.dp.toPx()
+            // The same Daily 3-Tangerine Stick in both themes. Night simply
+            // uses warmer ink on the black ledger; no dial or moon any more.
+            val scale = size.height / 180.dp.toPx()
+            val trunkTop = 80f * scale
+            val trunkBottom = size.height - 80f * scale
+            val trunkX = center.x
 
-                drawCircle(
-                    color = colors.ruleDark,
-                    radius = outerRadius,
-                    center = center,
-                    style = Stroke(width = hairline)
+            val barkColor = if (isDark) colors.bark else Color(0xFF4A3B32)
+            val leafColor = if (isDark) colors.leaf else Color(0xFF5A7A2A)
+            val tangerineColor = if (isDark) colors.tangerine else Color(0xFFD97020)
+
+            val trunkPath = Path().apply {
+                moveTo(trunkX, trunkBottom)
+                quadraticBezierTo(
+                    x1 = trunkX - 12f * scale,
+                    y1 = size.height / 2f,
+                    x2 = trunkX,
+                    y2 = trunkTop
                 )
-                drawCircle(
-                    color = colors.rule.copy(alpha = 0.85f),
-                    radius = innerRadius,
-                    center = center,
-                    style = Stroke(width = hairline)
-                )
+            }
+            drawPath(
+                path = trunkPath,
+                color = barkColor,
+                style = Stroke(width = 8f * scale, cap = StrokeCap.Round)
+            )
 
-                val missedMeals = state.cycleSkippedCount.toInt()
-                for (i in 0 until 25) {
-                    val angle = (i.toFloat() / 25f) * 2f * PI - PI / 2f
-                    val cosA = cos(angle).toFloat()
-                    val sinA = sin(angle).toFloat()
+            val dailyMeals = buildList {
+                if (rule.breakfast) add(state.mealsForDate[MealType.BREAKFAST]?.status ?: true)
+                if (rule.lunchPortions > 0) add(state.mealsForDate[MealType.LUNCH]?.status ?: true)
+                if (rule.dinner) add(state.mealsForDate[MealType.DINNER]?.status ?: true)
+            }
 
-                    if (i < missedMeals) {
-                        // A copper bead for each rebate spent.
-                        val beadCenter = Offset(
-                            center.x + outerRadius * cosA,
-                            center.y + outerRadius * sinA
-                        )
-                        drawCircle(
-                            color = colors.accentRed.copy(alpha = 0.16f),
-                            radius = beadRadius * 2f,
-                            center = beadCenter
-                        )
-                        drawCircle(
-                            color = colors.accentRed,
-                            radius = beadRadius,
-                            center = beadCenter
-                        )
+            val spacing = (trunkBottom - trunkTop - 60f * scale) / 5f
+
+            dailyMeals.forEachIndexed { index, isEaten ->
+                val xDir = if (index % 2 == 0) -1f else 1f
+
+                if (isEaten) {
+                    val fruitY = trunkTop + 30f * scale + index * spacing
+                    val fruitX = trunkX + xDir * 45f * scale
+                    val bend = if (fruitY > size.height * 0.3f && fruitY < size.height * 0.7f) {
+                        -6f * scale
                     } else {
-                        // Plain hairline ticks for the untouched allowance.
-                        drawLine(
-                            color = colors.rule.copy(alpha = 0.75f),
-                            start = Offset(
-                                center.x + (outerRadius - tickInset) * cosA,
-                                center.y + (outerRadius - tickInset) * sinA
-                            ),
-                            end = Offset(
-                                center.x + (outerRadius + 2.dp.toPx()) * cosA,
-                                center.y + (outerRadius + 2.dp.toPx()) * sinA
-                            ),
-                            strokeWidth = hairline,
-                            cap = StrokeCap.Round
-                        )
+                        0f
                     }
-                }
-
-                // The noon mark, so the dial has an orientation.
-                drawLine(
-                    color = colors.brass.copy(alpha = 0.85f),
-                    start = Offset(center.x, center.y - outerRadius),
-                    end = Offset(center.x, center.y - innerRadius),
-                    strokeWidth = hairline * 1.5f,
-                    cap = StrokeCap.Round
-                )
-                drawCircle(
-                    color = colors.brass,
-                    radius = 1.8.dp.toPx(),
-                    center = Offset(center.x, center.y - innerRadius)
-                )
-
-                // The moon reports the day rather than decorating it:
-                // new moon at none, crescent at one, gibbous at two, full at all.
-                val meals = buildList {
-                    if (rule.breakfast) add(MealType.BREAKFAST)
-                    if (rule.lunchPortions > 0) add(MealType.LUNCH)
-                    if (rule.dinner) add(MealType.DINNER)
-                }
-                val eatenCount = meals.count { state.mealsForDate[it]?.status ?: true }
-                val fullDay = meals.isNotEmpty() && eatenCount == meals.size
-
-                val moonRadius = outerRadius * 0.30f
-                val moonCenter = Offset(
-                    center.x - moonRadius * 0.08f,
-                    center.y + moonRadius * 0.02f
-                )
-
-                if (eatenCount == 0) {
-                    // New moon: the page is unmarked.
+                    drawLine(
+                        color = barkColor,
+                        start = Offset(trunkX + bend, fruitY - 5f * scale),
+                        end = Offset(fruitX, fruitY - 18f * scale),
+                        strokeWidth = 3.5f * scale,
+                        cap = StrokeCap.Round
+                    )
                     drawCircle(
-                        color = colors.textPrimary.copy(alpha = 0.55f),
-                        radius = moonRadius,
-                        center = moonCenter,
-                        style = Stroke(width = hairline)
+                        color = tangerineColor,
+                        radius = 35f * scale,
+                        center = Offset(fruitX, fruitY)
                     )
-                } else if (!fullDay) {
-                    val shadowDistance = when {
-                        eatenCount == 1 -> 0.55f
-                        meals.size == 2 -> 2.2f
-                        else -> 1.25f
-                    }
-
-                    // Cut the crescent out of the lit disc instead of painting
-                    // an opaque shadow, so the lamp wash below stays visible.
-                    val lit = Path().apply {
-                        addOval(
-                            Rect(
-                                left = moonCenter.x - moonRadius,
-                                top = moonCenter.y - moonRadius,
-                                right = moonCenter.x + moonRadius,
-                                bottom = moonCenter.y + moonRadius
-                            )
-                        )
-                    }
-                    val shadowCenter = Offset(
-                        moonCenter.x + moonRadius * shadowDistance,
-                        moonCenter.y - moonRadius * 0.18f
+                    drawOval(
+                        color = leafColor,
+                        topLeft = Offset(fruitX - 10f * scale, fruitY - 28f * scale),
+                        size = Size(18f * scale, 12f * scale)
                     )
-                    val shadowRadius = moonRadius * 0.93f
-                    val shadow = Path().apply {
-                        addOval(
-                            Rect(
-                                left = shadowCenter.x - shadowRadius,
-                                top = shadowCenter.y - shadowRadius,
-                                right = shadowCenter.x + shadowRadius,
-                                bottom = shadowCenter.y + shadowRadius
-                            )
-                        )
-                    }
-                    val moon = Path().apply {
-                        op(lit, shadow, PathOperation.Difference)
-                    }
-                    drawPath(path = moon, color = colors.textPrimary)
                 } else {
-                    drawCircle(color = colors.textPrimary, radius = moonRadius, center = moonCenter)
-                }
-
-                if (fullDay) {
-                    // A perfect day earns the only star in the book.
-                    val starCenter = Offset(
-                        center.x + outerRadius * 0.36f,
-                        center.y - outerRadius * 0.30f
+                    val dropX = trunkX + xDir * (40f * scale + index * 25f * scale)
+                    val dropY = trunkBottom - 5f * scale + (if (xDir < 0f) 6f * scale else -4f * scale)
+                    drawCircle(
+                        color = tangerineColor,
+                        radius = 35f * scale,
+                        center = Offset(dropX, dropY)
                     )
-                    val starArm = 4.5.dp.toPx()
-                    drawLine(
-                        color = colors.brass,
-                        start = Offset(starCenter.x - starArm, starCenter.y),
-                        end = Offset(starCenter.x + starArm, starCenter.y),
-                        strokeWidth = hairline,
-                        cap = StrokeCap.Round
+                    drawOval(
+                        color = leafColor,
+                        topLeft = Offset(dropX - 14f * scale, dropY - 22f * scale),
+                        size = Size(14f * scale, 10f * scale)
                     )
-                    drawLine(
-                        color = colors.brass,
-                        start = Offset(starCenter.x, starCenter.y - starArm),
-                        end = Offset(starCenter.x, starCenter.y + starArm),
-                        strokeWidth = hairline,
-                        cap = StrokeCap.Round
-                    )
-                }
-            } else {
-                // ----------------------------------------------------
-                // SUNLIT SCRAPBOOK (The Daily 3-Tangerine Stick)
-                // ----------------------------------------------------
-                // Scale from the original 180dp canvas so the drawing keeps
-                // its proportions on small phones, tablets and in landscape.
-                val scale = size.height / 180.dp.toPx()
-
-                val trunkTop = 80f * scale
-                val trunkBottom = size.height - 80f * scale
-                val trunkX = center.x
-
-                val barkColor = Color(0xFF4A3B32)
-                val leafColor = Color(0xFF5A7A2A)
-                val tangerineColor = Color(0xFFD97020)
-
-                // 1. Draw the Single Elegant Stem
-                val trunkPath = Path().apply {
-                    moveTo(trunkX, trunkBottom)
-                    quadraticBezierTo(
-                        x1 = trunkX - 12f * scale,
-                        y1 = size.height / 2f,
-                        x2 = trunkX,
-                        y2 = trunkTop
-                    )
-                }
-                drawPath(
-                    path = trunkPath,
-                    color = barkColor,
-                    style = Stroke(width = 8f * scale, cap = StrokeCap.Round)
-                )
-
-                // 2. Evaluate Today's Meals
-                val dailyMeals = buildList {
-                    if (rule.breakfast) add(state.mealsForDate[MealType.BREAKFAST]?.status ?: true)
-                    if (rule.lunchPortions > 0) add(state.mealsForDate[MealType.LUNCH]?.status ?: true)
-                    if (rule.dinner) add(state.mealsForDate[MealType.DINNER]?.status ?: true)
-                }
-
-                // 3. Draw the 3 Daily Fruits
-                val spacing = (trunkBottom - trunkTop - 60f * scale) / 5f
-
-                dailyMeals.forEachIndexed { index, isEaten ->
-                    val isLeft = index % 2 == 0
-                    val xDir = if (isLeft) -1f else 1f
-
-                    if (isEaten) {
-                        // HANGING FRUIT
-                        val fruitY = trunkTop + 30f * scale + (index * spacing)
-                        val fruitX = trunkX + (xDir * 45f * scale)
-
-                        val bendFactor = if (fruitY > size.height * 0.3f && fruitY < size.height * 0.7f) {
-                            -6f * scale
-                        } else {
-                            0f
-                        }
-                        val attachX = trunkX + bendFactor
-
-                        drawLine(
-                            color = barkColor,
-                            start = Offset(attachX, fruitY - 5f * scale),
-                            end = Offset(fruitX, fruitY - 18f * scale),
-                            strokeWidth = 3.5f * scale,
-                            cap = StrokeCap.Round
-                        )
-
-                        drawCircle(
-                            color = tangerineColor,
-                            radius = 35f * scale,
-                            center = Offset(fruitX, fruitY)
-                        )
-
-                        drawOval(
-                            color = leafColor,
-                            topLeft = Offset(fruitX - 10f * scale, fruitY - 28f * scale),
-                            size = Size(18f * scale, 12f * scale)
-                        )
-                    } else {
-                        // FALLEN FRUIT (Spread out on the ground)
-                        val dropX = trunkX + (xDir * (40f * scale + index * 25f * scale))
-                        val dropY = trunkBottom - 5f * scale + (if (isLeft) 6f * scale else -4f * scale)
-
-                        drawCircle(
-                            color = tangerineColor,
-                            radius = 35f * scale,
-                            center = Offset(dropX, dropY)
-                        )
-
-                        drawOval(
-                            color = leafColor,
-                            topLeft = Offset(dropX - 14f * scale, dropY - 22f * scale),
-                            size = Size(14f * scale, 10f * scale)
-                        )
-                    }
                 }
             }
         }
